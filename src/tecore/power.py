@@ -1,5 +1,3 @@
-# src/tecore/power.py
-
 """
 Power and sample size utilities for online experiments.
 

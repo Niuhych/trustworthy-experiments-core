@@ -9,25 +9,15 @@ The goal of this project is to provide **practical building blocks** for trustwo
 
 This repository is part of a broader effort to develop a framework for **trustworthy experimentation** in B2C products and services: e-commerce, subscription platforms, gaming, financial products for consumers, and other digital businesses.
 
-## What’s inside
+## What's inside
 
-- `src/tecore/power.py`  
-  Functions for power analysis and sample size calculation for common experiment setups (binary metrics like conversion rate, continuous metrics like ARPU, etc.).
+- [`src/tecore/power.py`](src/tecore/power.py) – functions for power analysis and sample size calculation for common experiment setups (binary metrics like conversion rate, etc.).
+- [`src/tecore/metrics.py`](src/tecore/metrics.py) – helpers for metric design, ratio metrics, and linearization.
+- [`src/tecore/design.py`](src/tecore/design.py) – utilities for high-level experiment design (MDE, sample size, duration).
 
-- `src/tecore/metrics.py`  
-  Helpers for working with ratio and linearized metrics, and for building customer-level KPIs that better reflect long-term value (LTV, retention, churn).
-
-- `src/tecore/design.py`  
-  Simple utilities for planning experiments:
-  - minimum detectable effect (MDE),
-  - allocation ratios,
-  - basic checks for underpowered tests.
-
-- `notebooks/01_power_analysis_arpu_cr.ipynb`  
-  A step-by-step example of power analysis for ARPU and conversion rate experiments.
-
-- `notebooks/02_metric_design_b2c.ipynb`  
-  Examples of metric design for B2C experiments, including ARPU, LTV-like metrics, and customer-level KPIs.
+- [`notebooks/01_power_analysis_arpu_cr.ipynb`](notebooks/01_power_analysis_arpu_cr.ipynb) – step-by-step example of power analysis for ARPU and conversion rate experiments.
+- [`notebooks/02_metric_design_b2c.ipynb`](notebooks/02_metric_design_b2c.ipynb) – examples of metric design for B2C experiments, including ARPU and ratio metrics.
+- [`notebooks/03_experiment_design_tradeoffs.ipynb`](notebooks/03_experiment_design_tradeoffs.ipynb) – experiment design trade-offs (MDE, sample size, duration).
 
 ## Who is this for?
 

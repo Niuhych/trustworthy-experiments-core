@@ -34,6 +34,9 @@ def _welch_pvalue(y_c: np.ndarray, y_t: np.ndarray) -> float:
 
 
 def cmd_cuped(args) -> int:
+    if not (0.0 < args.alpha < 1.0):
+    raise ValueError("--alpha must be in (0, 1).")
+    
     df = read_csv(args.input)
 
     g = df[args.group_col].astype(str).to_numpy()
@@ -54,6 +57,14 @@ def cmd_cuped(args) -> int:
     cup_c, cup_t = cuped_split_adjust(y_c, x_c, y_t, x_t)
     p_cuped = _welch_pvalue(cup_c.y_adj, cup_t.y_adj)
 
+    if not np.isfinite(p_base):
+        raise ValueError("Base p-value is not finite (check that Y has variance in both groups).")
+    if not np.isfinite(p_cuped):
+        raise ValueError("CUPED p-value is not finite (check variance after adjustment).")
+
+    reject_base = p_base < args.alpha
+    reject_cuped = p_cuped < args.alpha
+
     out = {
         "input": args.input,
         "group_col": args.group_col,
@@ -71,6 +82,8 @@ def cmd_cuped(args) -> int:
         "theta": float(cup_c.theta),
         "var_reduction_control": float(cup_c.var_reduction),
         "var_reduction_test": float(cup_t.var_reduction),
+        "reject_base": bool(reject_base),
+        "reject_cuped": bool(reject_cuped),
     }
 
     print(json.dumps(out, ensure_ascii=False, indent=2))

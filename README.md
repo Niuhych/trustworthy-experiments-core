@@ -51,6 +51,7 @@ Notebooks 05–07 can:
 The focus is on **clarity and practicality**, not on covering every possible edge case. The code is meant to be read, modified, and adapted to real-world pipelines.
 
 ## Quickstart
+The CLI produces a machine-readable JSON and a human-readable Markdown report (--out-json, --out-md).
 
 ### Install (pinned version)
 
@@ -110,20 +111,20 @@ tecore cuped-ratio --input data.csv --num revenue --den sessions --num-pre reven
 
 To evaluate the framework without sharing proprietary data, please send back:
 
-1) Your exact command line used to run the tool (copy/paste).
+1) The exact command line you used (copy/paste).
 2) The generated JSON output (`--out-json ...`).
 3) The generated Markdown report (`--out-md ...`).
 
 Optional (helps interpretation, still privacy-friendly):
-- short description of the metric (what `revenue`/`sessions` represent)
-- experiment duration (days) and unit of analysis (user/session/account)
-- approximate sample sizes (n_control, n_test)
-- whether the pre-period covariate is guaranteed to be measured before exposure (yes/no)
-- any notable data properties: heavy tails, many zeros, strong outliers, bot traffic, etc.
+- what the numerator/denominator represent in your domain (e.g., what `revenue` / `sessions` mean),
+- unit of analysis (user / account / session) and experiment duration (days),
+- confirmation that the pre-period covariate is measured strictly before exposure (yes/no),
+- notable data properties: heavy tails, many zeros, strong outliers, bot traffic, etc.
 
 If anything fails, please also include:
-- the full error text
-- your Python version (if known) and OS
+- the full error message / stack trace,
+- output of `python --version`,
+- your OS (e.g., Windows/macOS/Linux).
 
 ## Status
 

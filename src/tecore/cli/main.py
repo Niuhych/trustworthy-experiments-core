@@ -5,6 +5,7 @@ import argparse
 from tecore.cli.commands.version import cmd_version
 from tecore.cli.commands.validate import cmd_validate
 from tecore.cli.commands.cuped import cmd_cuped
+from tecore.cli.commands.cuped_ratio import cmd_cuped_ratio
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -32,6 +33,20 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--out-json", default=None)
     sp.add_argument("--out-md", default=None)
     sp.set_defaults(func=cmd_cuped)
+
+    sp = sub.add_parser("cuped-ratio", help="Base vs CUPED for a ratio metric via linearization.")
+    sp.add_argument("--input", required=True, help="Path to CSV file.")
+    sp.add_argument("--group-col", default="group")
+    sp.add_argument("--control", default="control")
+    sp.add_argument("--test", default="test")
+    sp.add_argument("--num", required=True, help="Post-period numerator column (e.g., revenue).")
+    sp.add_argument("--den", required=True, help="Post-period denominator column (e.g., sessions).")
+    sp.add_argument("--num-pre", required=True, help="Pre-period numerator column (e.g., revenue_pre).")
+    sp.add_argument("--den-pre", required=True, help="Pre-period denominator column (e.g., sessions_pre).")
+    sp.add_argument("--alpha", type=float, default=0.05)
+    sp.add_argument("--out-json", default=None)
+    sp.add_argument("--out-md", default=None)
+    sp.set_defaults(func=cmd_cuped_ratio)
 
     return p
 

@@ -27,7 +27,18 @@ jobs:
         run: |
           tecore --help
           tecore version
+
+          # Mean metric (user-level)
           tecore validate --input examples/example_user_level.csv --schema b2c_user_level
-          tecore cuped --input examples/example_user_level.csv --y revenue --x revenue_pre
+          tecore cuped \
+            --input examples/example_user_level.csv \
+            --y revenue --x revenue_pre \
+            --out-md out/report_mean.md --out-json out/result_mean.json
+
+          # Ratio metric (linearized)
           tecore validate --input examples/example_ratio.csv --schema b2c_ratio
-          tecore cuped-ratio --input examples/example_ratio.csv --num revenue --den sessions --num-pre revenue_pre --den-pre sessions_pre
+          tecore cuped-ratio \
+            --input examples/example_ratio.csv \
+            --num revenue --den sessions \
+            --num-pre revenue_pre --den-pre sessions_pre \
+            --out-md out/report_ratio.md --out-json out/result_ratio.json

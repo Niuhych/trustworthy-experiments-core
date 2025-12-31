@@ -35,7 +35,7 @@ def _welch_pvalue(y_c: np.ndarray, y_t: np.ndarray) -> float:
 
 def cmd_cuped(args) -> int:
     if not (0.0 < args.alpha < 1.0):
-    raise ValueError("--alpha must be in (0, 1).")
+        raise ValueError("--alpha must be in (0, 1).")
     
     df = read_csv(args.input)
 

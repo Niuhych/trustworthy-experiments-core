@@ -42,3 +42,9 @@ jobs:
             --num revenue --den sessions \
             --num-pre revenue_pre --den-pre sessions_pre \
             --out-md out/report_ratio.md --out-json out/result_ratio.json
+
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: tecore-reports
+          path: out/

@@ -27,3 +27,5 @@ jobs:
         run: |
           tecore --help
           tecore version
+          tecore validate --input examples/example_user_level.csv --schema b2c_user_level
+          tecore cuped --input examples/example_user_level.csv --y revenue --x revenue_pre

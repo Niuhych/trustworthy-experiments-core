@@ -56,16 +56,19 @@ The focus is on **clarity and practicality**, not on covering every possible edg
 
 ```bash
 pip install "git+https://github.com/Niuhych/trustworthy-experiments-core.git@v0.1.0"
+```
 
 ### Install with pipx (recommended for CLI)
 ```
 pipx install "git+https://github.com/Niuhych/trustworthy-experiments-core.git@v0.1.0"
+```
 
 ### Sanity check (run on included examples)
 
 ## Validate example user-level dataset:
 ```bash
 tecore validate --input examples/example_user_level.csv --schema b2c_user_level
+```
 
 ## Run base vs CUPED on a mean metric:
 ```bash
@@ -73,10 +76,12 @@ tecore cuped \
   --input examples/example_user_level.csv \
   --y revenue --x revenue_pre \
   --out-md out/report_mean.md --out-json out/result_mean.json
+```
 
 ## Validate example ratio dataset:
 ```bash
 tecore validate --input examples/example_ratio.csv --schema b2c_ratio
+```
 
 ## Run base vs CUPED on a ratio metric via linearization:
 ```bash
@@ -85,6 +90,7 @@ tecore cuped-ratio \
   --num revenue --den sessions \
   --num-pre revenue_pre --den-pre sessions_pre \
   --out-md out/report_ratio.md --out-json out/result_ratio.json
+```
 
 ### Run on your data
 
@@ -92,11 +98,13 @@ User-level mean metric:
 ```bash
 tecore validate --input data.csv --schema b2c_user_level
 tecore cuped --input data.csv --y revenue --x revenue_pre --out-md report.md --out-json result.json
+```
 
 ## Ratio metric (linearized):
 ```bash
 tecore validate --input data.csv --schema b2c_ratio
 tecore cuped-ratio --input data.csv --num revenue --den sessions --num-pre revenue_pre --den-pre sessions_pre --out-md report_ratio.md --out-json result_ratio.json
+```
 
 ## What to send back (pilot feedback)
 

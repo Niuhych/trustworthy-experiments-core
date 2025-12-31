@@ -29,3 +29,5 @@ jobs:
           tecore version
           tecore validate --input examples/example_user_level.csv --schema b2c_user_level
           tecore cuped --input examples/example_user_level.csv --y revenue --x revenue_pre
+          tecore validate --input examples/example_ratio.csv --schema b2c_ratio
+          tecore cuped-ratio --input examples/example_ratio.csv --num revenue --den sessions --num-pre revenue_pre --den-pre sessions_pre

@@ -50,12 +50,74 @@ Notebooks 05–07 can:
 
 The focus is on **clarity and practicality**, not on covering every possible edge case. The code is meant to be read, modified, and adapted to real-world pipelines.
 
-## How to run (local)
+## Quickstart
 
-Recommended:
-1) Create a virtual environment
-2) Install dependencies
-3) Run notebooks
+## Install (pinned version)
+
+```bash
+pip install "git+https://github.com/Niuhych/trustworthy-experiments-core.git@v0.1.0"
+```
+## Sanity check (run on included examples)
+
+## Validate example user-level dataset:
+```
+tecore validate --input examples/example_user_level.csv --schema b2c_user_level
+```
+
+## Run base vs CUPED on a mean metric:
+```
+tecore cuped \
+  --input examples/example_user_level.csv \
+  --y revenue --x revenue_pre \
+  --out-md out/report_mean.md --out-json out/result_mean.json
+```
+
+## Validate example ratio dataset:
+```
+tecore validate --input examples/example_ratio.csv --schema b2c_ratio
+```
+
+## Run base vs CUPED on a ratio metric via linearization:
+```
+tecore cuped-ratio \
+  --input examples/example_ratio.csv \
+  --num revenue --den sessions \
+  --num-pre revenue_pre --den-pre sessions_pre \
+  --out-md out/report_ratio.md --out-json out/result_ratio.json
+```
+
+## Run on your data
+
+User-level mean metric:
+```
+tecore validate --input data.csv --schema b2c_user_level
+tecore cuped --input data.csv --y revenue --x revenue_pre --out-md report.md --out-json result.json
+```
+
+## Ratio metric (linearized):
+```
+tecore validate --input data.csv --schema b2c_ratio
+tecore cuped-ratio --input data.csv --num revenue --den sessions --num-pre revenue_pre --den-pre sessions_pre --out-md report_ratio.md --out-json result_ratio.json
+```
+
+## What to send back (pilot feedback)
+
+To evaluate the framework without sharing proprietary data, please send back:
+
+1) Your exact command line used to run the tool (copy/paste).
+2) The generated JSON output (`--out-json ...`).
+3) The generated Markdown report (`--out-md ...`).
+
+Optional (helps interpretation, still privacy-friendly):
+- short description of the metric (what `revenue`/`sessions` represent)
+- experiment duration (days) and unit of analysis (user/session/account)
+- approximate sample sizes (n_control, n_test)
+- whether the pre-period covariate is guaranteed to be measured before exposure (yes/no)
+- any notable data properties: heavy tails, many zeros, strong outliers, bot traffic, etc.
+
+If anything fails, please also include:
+- the full error text
+- your Python version (if known) and OS
 
 ## Status
 

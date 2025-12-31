@@ -26,5 +26,7 @@ def render_cuped_report(res: dict) -> str:
     lines.append("## Notes")
     lines.append("- CUPED корректен, если ковариата X измерена до воздействия и не содержит утечки эффекта.")
     lines.append("- Для тяжелых хвостов и преобразованных метрик может потребоваться cross-fitting CUPED (в репозитории это будет отдельной опцией).")
+    lines.append(f"- reject H0 (base, alpha={res['alpha']}): {res['reject_base']}")
+    lines.append(f"- reject H0 (CUPED, alpha={res['alpha']}): {res['reject_cuped']}")
     lines.append("")
     return "\n".join(lines)

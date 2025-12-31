@@ -1,0 +1,30 @@
+from __future__ import annotations
+
+
+def render_cuped_report(res: dict) -> str:
+    lines: list[str] = []
+    lines.append("# CUPED report")
+    lines.append("")
+    lines.append("## Input")
+    lines.append(f"- file: {res['input']}")
+    lines.append(f"- groups: {res['control']} vs {res['test']} (col: {res['group_col']})")
+    lines.append(f"- Y (post): {res['y']}")
+    lines.append(f"- X (pre): {res['x']}")
+    lines.append(f"- transform: {res['transform']}" + (f" (winsor q={res['winsor_q']})" if res.get("winsor_q") else ""))
+    lines.append("")
+    lines.append("## Sample sizes")
+    lines.append(f"- n_control: {res['n_control']}")
+    lines.append(f"- n_test: {res['n_test']}")
+    lines.append("")
+    lines.append("## Results")
+    lines.append(f"- p-value (base): {res['p_value_base']:.6f}")
+    lines.append(f"- p-value (CUPED): {res['p_value_cuped']:.6f}")
+    lines.append(f"- theta: {res['theta']:.6f}")
+    lines.append(f"- variance reduction (control): {res['var_reduction_control']:.3f}")
+    lines.append(f"- variance reduction (test): {res['var_reduction_test']:.3f}")
+    lines.append("")
+    lines.append("## Notes")
+    lines.append("- CUPED корректен, если ковариата X измерена до воздействия и не содержит утечки эффекта.")
+    lines.append("- Для тяжелых хвостов и преобразованных метрик может потребоваться cross-fitting CUPED (в репозитории это будет отдельной опцией).")
+    lines.append("")
+    return "\n".join(lines)

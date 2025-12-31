@@ -15,7 +15,6 @@ Paste the exact command lines:
 ```bash
 # validate
 ...
-```
 # cuped / cuped-ratio
 ...
 ```

@@ -84,8 +84,8 @@ class QualityThresholds:
 
 def quality_warnings(
     pre_r2: float,
-    pre_rmse: float,
-    acf: Dict[int, float],
+    pre_rmse: float | None = None,
+    acf: Dict[int, float] | None = None,
     thresholds: QualityThresholds = QualityThresholds(),
     **kwargs,
 ) -> List[str]:
@@ -93,15 +93,27 @@ def quality_warnings(
     Produce human-readable warnings for trustworthiness.
 
     Backward-compatible:
-    - accepts legacy kwargs like r2_min, residual_acf_abs_max, acf_lag1_abs_max
-      (used by other modules such as synthetic_control.py).
+    - supports calls where pre_rmse is omitted (legacy callers)
+    - supports legacy kwargs like r2_min, residual_acf_abs_max, acf_lag1_abs_max
     """
+
+    # Some legacy callers may pass `acf` as the second positional arg (i.e., omit pre_rmse).
+    # If pre_rmse looks like a dict, treat it as `acf`.
+    if acf is None and isinstance(pre_rmse, dict):
+        acf = pre_rmse  # type: ignore[assignment]
+        pre_rmse = None
+
+    if acf is None:
+        acf = {}
+
     warnings: List[str] = []
 
     # Back-compat overrides (if provided by callers)
     r2_min = kwargs.get("r2_min", thresholds.min_pre_r2)
-    # some code may use different names for the autocorr gate
-    acf_abs_max = kwargs.get("residual_acf_abs_max", kwargs.get("acf_lag1_abs_max", thresholds.max_abs_autocorr_lag1))
+    acf_abs_max = kwargs.get(
+        "residual_acf_abs_max",
+        kwargs.get("acf_lag1_abs_max", thresholds.max_abs_autocorr_lag1),
+    )
 
     if not np.isfinite(pre_r2) or pre_r2 < float(r2_min):
         warnings.append(
@@ -114,7 +126,7 @@ def quality_warnings(
             f"Residual autocorrelation is high at lag 1 (acf1={lag1:.3f} > {float(acf_abs_max):.3f}). CI may be optimistic."
         )
 
-    _ = pre_rmse  # RMSE is scale-dependent; kept for reporting
+    _ = pre_rmse  # optional; kept for reporting
     return warnings
 
 

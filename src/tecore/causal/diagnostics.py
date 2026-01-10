@@ -17,6 +17,12 @@ def r2_score_safe(y_true: np.ndarray, y_pred: np.ndarray) -> float:
         return float("nan")
     return float(1.0 - ss_res / ss_tot)
 
+def r2_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """
+    Backward-compatible alias expected by impact.py.
+    """
+    return r2_score_safe(y_true, y_pred)
+
 
 def rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     y_true = np.asarray(y_true, dtype=float)

@@ -84,7 +84,7 @@ class QualityThresholds:
 def quality_warnings(
     pre_r2: float,
     pre_rmse: float | None = None,
-    acf: Dict[int, float] | None = None,
+    acf: Dict[int, float] | Dict[str, float] | float | None = None,
     thresholds: QualityThresholds | float | None = QualityThresholds(),
     **kwargs,
 ) -> List[str]:
@@ -92,26 +92,18 @@ def quality_warnings(
     Produce human-readable warnings for trustworthiness.
 
     Backward-compatible with multiple calling patterns:
-      1) quality_warnings(pre_r2, pre_rmse, acf_dict, thresholds=QualityThresholds(...))
-      2) quality_warnings(pre_r2, acf_dict, r2_min=..., residual_acf_abs_max=...)
-      3) quality_warnings(pre_r2, pre_rmse, acf_dict, r2_min_float, ...)
-      4) quality_warnings(pre_r2, pre_rmse, acf_abs_max_float, ...)  # acf passed as float
+      - quality_warnings(pre_r2, pre_rmse, acf_dict, thresholds=QualityThresholds(...))
+      - quality_warnings(pre_r2, acf_dict, r2_min=..., residual_autocorr_abs_max=...)
+      - quality_warnings(pre_r2, pre_rmse, acf_max_float, r2_min_float, ...)
+      - quality_warnings(pre_r2, pre_rmse, {"acf_lag1":..., "max_abs_acf_1_to_7":...}, ...)
     """
 
-    # Legacy pattern: second positional arg is acf dict (pre_rmse omitted)
-    if acf is None and isinstance(pre_rmse, dict):
+    # Legacy pattern: second positional arg is actually an acf dict (pre_rmse omitted)
+    if isinstance(pre_rmse, dict) and acf is None:
         acf = pre_rmse  # type: ignore[assignment]
         pre_rmse = None
 
-    # Legacy pattern: `acf` provided as a float meaning "acf_abs_max"
-    if isinstance(acf, (int, float, np.floating)):
-        kwargs.setdefault("residual_acf_abs_max", float(acf))
-        acf = {}
-
-    if acf is None:
-        acf = {}
-
-    # Legacy pattern: thresholds passed as a float meaning "r2_min"
+    # thresholds passed as float meaning r2_min
     if isinstance(thresholds, (int, float, np.floating)):
         kwargs.setdefault("r2_min", float(thresholds))
         thresholds_obj = QualityThresholds()
@@ -120,26 +112,79 @@ def quality_warnings(
     else:
         thresholds_obj = thresholds
 
-    warnings: List[str] = []
-
+    # Resolve thresholds (accept multiple keyword names used elsewhere in the repo)
     r2_min = float(kwargs.get("r2_min", thresholds_obj.min_pre_r2))
     acf_abs_max = float(
         kwargs.get(
-            "residual_acf_abs_max",
-            kwargs.get("acf_lag1_abs_max", thresholds_obj.max_abs_autocorr_lag1),
+            "residual_autocorr_abs_max",
+            kwargs.get(
+                "residual_acf_abs_max",
+                kwargs.get(
+                    "acf_abs_max",
+                    kwargs.get("acf_lag1_abs_max", thresholds_obj.max_abs_autocorr_lag1),
+                ),
+            ),
         )
     )
 
+    warnings: List[str] = []
+
+    # R2 gate
     if not np.isfinite(pre_r2) or pre_r2 < r2_min:
         warnings.append(
             f"Pre-fit quality is weak (R2={pre_r2:.3f} < {r2_min:.3f}). Counterfactual may be unreliable."
         )
 
-    lag1 = float(acf.get(1, float("nan")))
-    if np.isfinite(lag1) and abs(lag1) > acf_abs_max:
-        warnings.append(
-            f"Residual autocorrelation is high at lag 1 (acf1={lag1:.3f} > {acf_abs_max:.3f}). CI may be optimistic."
-        )
+    # --- Autocorrelation gate (use max abs ACF if available) ---
+    observed_max_abs_acf: float | None = None
+    observed_lag1: float | None = None
+
+    if isinstance(acf, (int, float, np.floating)):
+        # Caller already passed a max-abs-ACF scalar
+        observed_max_abs_acf = float(abs(acf))
+    elif isinstance(acf, dict):
+        # Try to read common summary keys first
+        if "max_abs_acf_1_to_7" in acf:
+            observed_max_abs_acf = float(abs(acf["max_abs_acf_1_to_7"]))
+        elif "max_abs_acf" in acf:
+            observed_max_abs_acf = float(abs(acf["max_abs_acf"]))
+        # lag1 may be stored as "acf_lag1" or as integer key 1
+        if "acf_lag1" in acf:
+            observed_lag1 = float(acf["acf_lag1"])
+        elif 1 in acf:  # type: ignore[operator]
+            observed_lag1 = float(acf[1])  # type: ignore[index]
+
+        # If still no max, compute from available lags (int keys or acf_lagK keys)
+        if observed_max_abs_acf is None:
+            vals: List[float] = []
+            for k, v in acf.items():
+                if v is None:
+                    continue
+                try:
+                    fv = float(v)
+                except Exception:
+                    continue
+                # accept integer-lag dicts or string keys like "acf_lag3"
+                if isinstance(k, int) or (isinstance(k, str) and k.startswith("acf_lag")):
+                    if np.isfinite(fv):
+                        vals.append(abs(fv))
+            if vals:
+                observed_max_abs_acf = float(max(vals))
+
+    # Trigger warning if max abs ACF is above threshold
+    if observed_max_abs_acf is not None and np.isfinite(observed_max_abs_acf):
+        if observed_max_abs_acf > acf_abs_max:
+            # Prefer to show lag1 too if we have it
+            if observed_lag1 is not None and np.isfinite(observed_lag1):
+                warnings.append(
+                    f"Residual autocorrelation is high (max|ACF(1..7)|={observed_max_abs_acf:.3f}, "
+                    f"ACF(1)={float(observed_lag1):.3f} > {acf_abs_max:.3f}). CI may be optimistic."
+                )
+            else:
+                warnings.append(
+                    f"Residual autocorrelation is high (max|ACF(1..7)|={observed_max_abs_acf:.3f} > {acf_abs_max:.3f}). "
+                    "CI may be optimistic."
+                )
 
     _ = pre_rmse  # optional; kept for reporting
     return warnings

@@ -7,7 +7,7 @@ import numpy as np
 
 
 def r2_score_safe(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """R² without sklearn; returns NaN if variance is zero."""
+    """R2 without sklearn; returns NaN if variance is zero."""
     y_true = np.asarray(y_true, dtype=float)
     y_pred = np.asarray(y_pred, dtype=float)
 
@@ -17,10 +17,9 @@ def r2_score_safe(y_true: np.ndarray, y_pred: np.ndarray) -> float:
         return float("nan")
     return float(1.0 - ss_res / ss_tot)
 
+
+# Backward-compatible name expected by impact.py (and other callers)
 def r2_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
-    """
-    Backward-compatible alias expected by impact.py.
-    """
     return r2_score_safe(y_true, y_pred)
 
 
@@ -33,7 +32,7 @@ def rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
 def residual_autocorr(residuals: np.ndarray, max_lag: int = 7) -> Dict[int, float]:
     """
     Simple residual autocorrelation by lag (Pearson correlation).
-    This is not a formal whiteness test, but is a pragmatic diagnostic.
+    Pragmatic diagnostic, not a formal whiteness test.
     """
     r = np.asarray(residuals, dtype=float)
     r = r[~np.isnan(r)]
@@ -51,6 +50,28 @@ def residual_autocorr(residuals: np.ndarray, max_lag: int = 7) -> Dict[int, floa
         denom = float(np.std(a) * np.std(b))
         out[k] = float(np.corrcoef(a, b)[0, 1]) if denom > 0 else float("nan")
 
+    return out
+
+
+def residual_autocorr_summary(residuals: np.ndarray, max_lag: int = 7) -> Dict[str, float]:
+    """
+    Flat summary used by impact.py.
+
+    Keys:
+      - acf_lag1 .. acf_lag{max_lag}
+      - max_abs_acf_1_to_{max_lag}
+    """
+    acf = residual_autocorr(residuals, max_lag=max_lag)
+
+    out: Dict[str, float] = {}
+    vals: List[float] = []
+    for k in range(1, max_lag + 1):
+        v = float(acf.get(k, float("nan")))
+        out[f"acf_lag{k}"] = v
+        if np.isfinite(v):
+            vals.append(abs(v))
+
+    out[f"max_abs_acf_1_to_{max_lag}"] = float(max(vals)) if vals else float("nan")
     return out
 
 
@@ -74,14 +95,13 @@ def quality_warnings(
             f"Pre-fit quality is weak (R2={pre_r2:.3f}). Counterfactual may be unreliable."
         )
 
-    lag1 = acf.get(1, float("nan"))
-    if np.isfinite(lag1) and abs(float(lag1)) > thresholds.max_abs_autocorr_lag1:
+    lag1 = float(acf.get(1, float("nan")))
+    if np.isfinite(lag1) and abs(lag1) > thresholds.max_abs_autocorr_lag1:
         warnings.append(
-            f"Residual autocorrelation is high at lag 1 (acf1={float(lag1):.3f}). CI may be optimistic."
+            f"Residual autocorrelation is high at lag 1 (acf1={lag1:.3f}). CI may be optimistic."
         )
 
-    # RMSE is context-dependent (scale of y), so we do not hard-gate by default.
-    _ = pre_rmse
+    _ = pre_rmse  # RMSE is scale-dependent; keep for reporting
     return warnings
 
 
@@ -93,13 +113,29 @@ def compute_pre_fit_diagnostics(
       - pre_r2: float
       - pre_rmse: float
       - resid_autocorr: Dict[int, float]
+      - resid_autocorr_summary: Dict[str, float]
     """
     y_pre = np.asarray(y_pre, dtype=float)
     yhat_pre = np.asarray(yhat_pre, dtype=float)
     res = y_pre - yhat_pre
 
+    acf = residual_autocorr(res, max_lag=max_lag)
+
     return {
         "pre_r2": r2_score_safe(y_pre, yhat_pre),
         "pre_rmse": rmse(y_pre, yhat_pre),
-        "resid_autocorr": residual_autocorr(res, max_lag=max_lag),
+        "resid_autocorr": acf,
+        "resid_autocorr_summary": residual_autocorr_summary(res, max_lag=max_lag),
     }
+
+
+__all__ = [
+    "r2_score_safe",
+    "r2_score",
+    "rmse",
+    "residual_autocorr",
+    "residual_autocorr_summary",
+    "QualityThresholds",
+    "quality_warnings",
+    "compute_pre_fit_diagnostics",
+]

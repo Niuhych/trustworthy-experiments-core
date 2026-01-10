@@ -78,23 +78,19 @@ def placebo_in_time_test(
             rows.append({"placebo_date": pd.Timestamp(d), "cum_effect": np.nan})
 
     placebo_df = pd.DataFrame(rows)
-    
-    required_cols = [
-        "placebo_date",
-        "placebo_point_effect",
-        "placebo_cum_effect",
-        "placebo_rel_effect",
-    ]
-    for c in required_cols:
-        if c not in placebo_df.columns:
-            placebo_df[c] = pd.Series(dtype="float") if c != "placebo_date" else pd.Series(dtype="datetime64[ns]")
-    
+
+    if "placebo_date" not in placebo_df.columns:
+        placebo_df["placebo_date"] = pd.Series(dtype="datetime64[ns]")
+    if "cum_effect" not in placebo_df.columns:
+        placebo_df["cum_effect"] = pd.Series(dtype="float")
+
     if placebo_df.empty:
-        return placebo_df
-    
+        return placebo_df, None
+
     placebo_df["placebo_date"] = pd.to_datetime(placebo_df["placebo_date"])
     placebo_df = placebo_df.sort_values("placebo_date").reset_index(drop=True)
-    return placebo_df
+
+    return placebo_df, None
 
 
 def two_sided_p_value(placebo_cum_effects: np.ndarray, true_cum_effect: float) -> Optional[float]:

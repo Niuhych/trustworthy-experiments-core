@@ -1,0 +1,34 @@
+name: timeseries_causal_impact
+version: 1
+
+description: >
+  Single-unit time series dataset for causal impact / synthetic control style evaluation.
+
+required_columns:
+  - date
+  - y
+
+optional_columns:
+  - sessions
+  - active_users
+  - marketing_spend
+  - external_index
+  - segment
+
+types:
+  date: date
+  y: float
+  sessions: float
+  active_users: float
+  marketing_spend: float
+  external_index: float
+  segment: string
+
+constraints:
+  - date_unique: true
+  - sorted_by_date: true
+  - no_missing_required: true
+
+notes:
+  - Intervention date is provided by CLI (--intervention YYYY-MM-DD), not in the dataset.
+  - Covariates are passed via CLI (--x col1,col2,...).

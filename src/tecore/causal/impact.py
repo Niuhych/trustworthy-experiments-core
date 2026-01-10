@@ -9,7 +9,7 @@ from sklearn.linear_model import Ridge
 
 from .schema import DataSpec, ImpactConfig, ImpactMethod, ImpactResult
 from .preprocess import prepare_timeseries
-from .diagnostics import r2_score, rmse, residual_autocorr_summary, quality_warnings
+from .diagnostics import r2_score_safe as r2_score, rmse, residual_autocorr_summary, quality_warnings
 from .placebo import placebo_in_time_test, two_sided_p_value
 from .synthetic_control import fit_synthetic_control_ridge
 from .did import did_time_series

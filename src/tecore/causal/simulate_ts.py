@@ -113,6 +113,7 @@ def generate_synthetic_time_series(cfg: SyntheticTSConfig) -> Tuple[pd.DataFrame
     }
     return df, meta
 
+
 def generate_synthetic_time_series_simple(
     *,
     start_date: str,
@@ -122,19 +123,53 @@ def generate_synthetic_time_series_simple(
     **kwargs,
 ):
     """
-    User-friendly wrapper: dates in YYYY-MM-DD and length in days.
+    Convenience wrapper for synthetic TS generation.
 
-    Returns: (df, meta) exactly like generate_synthetic_time_series(SyntheticTSConfig).
+    Parameters
+    ----------
+    start_date : str
+        YYYY-MM-DD
+    periods : int
+        Number of days (maps to SyntheticTSConfig.n_days)
+    intervention_date : str
+        YYYY-MM-DD (converted to intervention_day offset from start_date)
+    seed : int
+        Random seed (maps to SyntheticTSConfig.random_state)
+    **kwargs :
+        Any additional SyntheticTSConfig fields, e.g. level_shift, slope_change, temp_effect_amp, confounding, etc.
+
+    Returns
+    -------
+    (df, meta) : Tuple[pd.DataFrame, Dict[str, float]]
+        Same as generate_synthetic_time_series(cfg)
     """
-    start = pd.Timestamp(start_date)
-    t0 = pd.Timestamp(intervention_date)
-    intervention_day = int((t0 - start).days)
+    from dataclasses import fields
+
+    import pandas as pd
+
+    start_ts = pd.Timestamp(start_date)
+    t0_ts = pd.Timestamp(intervention_date)
+
+    intervention_day = int((t0_ts - start_ts).days)
+
+    if intervention_day < 0:
+        raise ValueError(
+            f"intervention_date={intervention_date} is before start_date={start_date}."
+        )
+    if intervention_day >= int(periods):
+        raise ValueError(
+            f"intervention_date={intervention_date} is outside the generated range: "
+            f"start_date={start_date}, periods={periods} (last index={int(periods) - 1})."
+        )
+
+    allowed = {f.name for f in fields(SyntheticTSConfig)}
+    cfg_kwargs = {k: v for k, v in kwargs.items() if k in allowed}
 
     cfg = SyntheticTSConfig(
         start_date=start_date,
-        n_days=periods,
+        n_days=int(periods),
         intervention_day=intervention_day,
-        random_state=seed,
-        **kwargs,
+        random_state=int(seed),
+        **cfg_kwargs,
     )
     return generate_synthetic_time_series(cfg)

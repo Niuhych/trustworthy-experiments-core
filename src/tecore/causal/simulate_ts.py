@@ -112,3 +112,29 @@ def generate_synthetic_time_series(cfg: SyntheticTSConfig) -> Tuple[pd.DataFrame
         "true_avg_effect": float(np.mean(effect[post_mask])),
     }
     return df, meta
+
+def generate_synthetic_time_series_simple(
+    *,
+    start_date: str,
+    periods: int,
+    intervention_date: str,
+    seed: int = 42,
+    **kwargs,
+):
+    """
+    User-friendly wrapper: dates in YYYY-MM-DD and length in days.
+
+    Returns: (df, meta) exactly like generate_synthetic_time_series(SyntheticTSConfig).
+    """
+    start = pd.Timestamp(start_date)
+    t0 = pd.Timestamp(intervention_date)
+    intervention_day = int((t0 - start).days)
+
+    cfg = SyntheticTSConfig(
+        start_date=start_date,
+        n_days=periods,
+        intervention_day=intervention_day,
+        random_state=seed,
+        **kwargs,
+    )
+    return generate_synthetic_time_series(cfg)

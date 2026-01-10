@@ -87,21 +87,34 @@ def quality_warnings(
     pre_rmse: float,
     acf: Dict[int, float],
     thresholds: QualityThresholds = QualityThresholds(),
+    **kwargs,
 ) -> List[str]:
+    """
+    Produce human-readable warnings for trustworthiness.
+
+    Backward-compatible:
+    - accepts legacy kwargs like r2_min, residual_acf_abs_max, acf_lag1_abs_max
+      (used by other modules such as synthetic_control.py).
+    """
     warnings: List[str] = []
 
-    if not np.isfinite(pre_r2) or pre_r2 < thresholds.min_pre_r2:
+    # Back-compat overrides (if provided by callers)
+    r2_min = kwargs.get("r2_min", thresholds.min_pre_r2)
+    # some code may use different names for the autocorr gate
+    acf_abs_max = kwargs.get("residual_acf_abs_max", kwargs.get("acf_lag1_abs_max", thresholds.max_abs_autocorr_lag1))
+
+    if not np.isfinite(pre_r2) or pre_r2 < float(r2_min):
         warnings.append(
-            f"Pre-fit quality is weak (R2={pre_r2:.3f}). Counterfactual may be unreliable."
+            f"Pre-fit quality is weak (R2={pre_r2:.3f} < {float(r2_min):.3f}). Counterfactual may be unreliable."
         )
 
     lag1 = float(acf.get(1, float("nan")))
-    if np.isfinite(lag1) and abs(lag1) > thresholds.max_abs_autocorr_lag1:
+    if np.isfinite(lag1) and abs(lag1) > float(acf_abs_max):
         warnings.append(
-            f"Residual autocorrelation is high at lag 1 (acf1={lag1:.3f}). CI may be optimistic."
+            f"Residual autocorrelation is high at lag 1 (acf1={lag1:.3f} > {float(acf_abs_max):.3f}). CI may be optimistic."
         )
 
-    _ = pre_rmse  # RMSE is scale-dependent; keep for reporting
+    _ = pre_rmse  # RMSE is scale-dependent; kept for reporting
     return warnings
 
 

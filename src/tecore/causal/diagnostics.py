@@ -81,7 +81,6 @@ class QualityThresholds:
     min_pre_r2: float = 0.20
     max_abs_autocorr_lag1: float = 0.50
 
-
 def quality_warnings(
     pre_r2: float,
     pre_rmse: float | None = None,
@@ -92,11 +91,11 @@ def quality_warnings(
     """
     Produce human-readable warnings for trustworthiness.
 
-    Backward-compatible with multiple historical calling patterns:
-      1) quality_warnings(pre_r2, pre_rmse, acf, thresholds=QualityThresholds(...))
+    Backward-compatible with multiple calling patterns:
+      1) quality_warnings(pre_r2, pre_rmse, acf_dict, thresholds=QualityThresholds(...))
       2) quality_warnings(pre_r2, acf_dict, r2_min=..., residual_acf_abs_max=...)
       3) quality_warnings(pre_r2, pre_rmse, acf_dict, r2_min_float, ...)
-         where 4th positional arg is actually r2_min (float), not QualityThresholds.
+      4) quality_warnings(pre_r2, pre_rmse, acf_abs_max_float, ...)  # acf passed as float
     """
 
     # Legacy pattern: second positional arg is acf dict (pre_rmse omitted)
@@ -104,10 +103,15 @@ def quality_warnings(
         acf = pre_rmse  # type: ignore[assignment]
         pre_rmse = None
 
+    # Legacy pattern: `acf` provided as a float meaning "acf_abs_max"
+    if isinstance(acf, (int, float, np.floating)):
+        kwargs.setdefault("residual_acf_abs_max", float(acf))
+        acf = {}
+
     if acf is None:
         acf = {}
 
-    # Legacy pattern: thresholds passed as a float (meaning r2_min)
+    # Legacy pattern: thresholds passed as a float meaning "r2_min"
     if isinstance(thresholds, (int, float, np.floating)):
         kwargs.setdefault("r2_min", float(thresholds))
         thresholds_obj = QualityThresholds()
@@ -118,7 +122,6 @@ def quality_warnings(
 
     warnings: List[str] = []
 
-    # Back-compat overrides (if provided by callers)
     r2_min = float(kwargs.get("r2_min", thresholds_obj.min_pre_r2))
     acf_abs_max = float(
         kwargs.get(

@@ -15,7 +15,7 @@ date (YYYY-MM-DD)
 y (target metric)
 
 ## Quick run
-bash ```
+```
 PYTHONPATH=src python scripts/run_impact.py \
   --input data/example_ts/example_daily.csv \
   --out results/ci_demo \

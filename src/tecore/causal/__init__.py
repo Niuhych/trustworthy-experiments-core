@@ -7,10 +7,7 @@ from .schema import (
 
 from .impact import run_impact
 
-from .simulate_ts import (
-    SyntheticTSConfig,
-    generate_synthetic_time_series,
-)
+from .simulate_ts import generate_synthetic_time_series_simple
 
 __all__ = [
     "DataSpec",
@@ -19,5 +16,5 @@ __all__ = [
     "ImpactResult",
     "run_impact",
     "SyntheticTSConfig",
-    "generate_synthetic_time_series",
+    "generate_synthetic_time_series_simple",
 ]

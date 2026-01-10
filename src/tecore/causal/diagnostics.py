@@ -86,19 +86,20 @@ def quality_warnings(
     pre_r2: float,
     pre_rmse: float | None = None,
     acf: Dict[int, float] | None = None,
-    thresholds: QualityThresholds = QualityThresholds(),
+    thresholds: QualityThresholds | float | None = QualityThresholds(),
     **kwargs,
 ) -> List[str]:
     """
     Produce human-readable warnings for trustworthiness.
 
-    Backward-compatible:
-    - supports calls where pre_rmse is omitted (legacy callers)
-    - supports legacy kwargs like r2_min, residual_acf_abs_max, acf_lag1_abs_max
+    Backward-compatible with multiple historical calling patterns:
+      1) quality_warnings(pre_r2, pre_rmse, acf, thresholds=QualityThresholds(...))
+      2) quality_warnings(pre_r2, acf_dict, r2_min=..., residual_acf_abs_max=...)
+      3) quality_warnings(pre_r2, pre_rmse, acf_dict, r2_min_float, ...)
+         where 4th positional arg is actually r2_min (float), not QualityThresholds.
     """
 
-    # Some legacy callers may pass `acf` as the second positional arg (i.e., omit pre_rmse).
-    # If pre_rmse looks like a dict, treat it as `acf`.
+    # Legacy pattern: second positional arg is acf dict (pre_rmse omitted)
     if acf is None and isinstance(pre_rmse, dict):
         acf = pre_rmse  # type: ignore[assignment]
         pre_rmse = None
@@ -106,24 +107,35 @@ def quality_warnings(
     if acf is None:
         acf = {}
 
+    # Legacy pattern: thresholds passed as a float (meaning r2_min)
+    if isinstance(thresholds, (int, float, np.floating)):
+        kwargs.setdefault("r2_min", float(thresholds))
+        thresholds_obj = QualityThresholds()
+    elif thresholds is None:
+        thresholds_obj = QualityThresholds()
+    else:
+        thresholds_obj = thresholds
+
     warnings: List[str] = []
 
     # Back-compat overrides (if provided by callers)
-    r2_min = kwargs.get("r2_min", thresholds.min_pre_r2)
-    acf_abs_max = kwargs.get(
-        "residual_acf_abs_max",
-        kwargs.get("acf_lag1_abs_max", thresholds.max_abs_autocorr_lag1),
+    r2_min = float(kwargs.get("r2_min", thresholds_obj.min_pre_r2))
+    acf_abs_max = float(
+        kwargs.get(
+            "residual_acf_abs_max",
+            kwargs.get("acf_lag1_abs_max", thresholds_obj.max_abs_autocorr_lag1),
+        )
     )
 
-    if not np.isfinite(pre_r2) or pre_r2 < float(r2_min):
+    if not np.isfinite(pre_r2) or pre_r2 < r2_min:
         warnings.append(
-            f"Pre-fit quality is weak (R2={pre_r2:.3f} < {float(r2_min):.3f}). Counterfactual may be unreliable."
+            f"Pre-fit quality is weak (R2={pre_r2:.3f} < {r2_min:.3f}). Counterfactual may be unreliable."
         )
 
     lag1 = float(acf.get(1, float("nan")))
-    if np.isfinite(lag1) and abs(lag1) > float(acf_abs_max):
+    if np.isfinite(lag1) and abs(lag1) > acf_abs_max:
         warnings.append(
-            f"Residual autocorrelation is high at lag 1 (acf1={lag1:.3f} > {float(acf_abs_max):.3f}). CI may be optimistic."
+            f"Residual autocorrelation is high at lag 1 (acf1={lag1:.3f} > {acf_abs_max:.3f}). CI may be optimistic."
         )
 
     _ = pre_rmse  # optional; kept for reporting

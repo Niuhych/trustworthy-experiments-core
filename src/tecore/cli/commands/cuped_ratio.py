@@ -1,95 +1,290 @@
 from __future__ import annotations
 
-import json
+import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
+import pandas as pd
 from scipy import stats
 
-from tecore.io.reader import read_csv
-from tecore.metrics.ratio import ratio_point, linearize_ratio
-from tecore.variance_reduction import cuped_split_adjust
-from tecore.report.render import render_cuped_report
+from tecore.cli.bundle import (
+    prepare_out_dir,
+    save_plot,
+    write_report_md,
+    write_results_json,
+    write_run_meta,
+    write_table,
+)
+
+def _warn(msg: str) -> None:
+    print(f"[tecore][warn] {msg}", file=sys.stderr)
 
 
-def _welch_pvalue(y_c: np.ndarray, y_t: np.ndarray) -> float:
-    _, p = stats.ttest_ind(y_t, y_c, equal_var=False)
-    return float(p)
+def _welch_mean_diff(a: np.ndarray, b: np.ndarray, alpha: float) -> dict[str, Any]:
+    a = a[np.isfinite(a)]
+    b = b[np.isfinite(b)]
+    n1, n2 = len(a), len(b)
+    if n1 < 2 or n2 < 2:
+        raise ValueError("Not enough observations per group for inference (need >=2).")
+
+    m1, m2 = float(np.mean(a)), float(np.mean(b))
+    v1, v2 = float(np.var(a, ddof=1)), float(np.var(b, ddof=1))
+    se = np.sqrt(v1 / n1 + v2 / n2)
+
+    if se == 0:
+        t_stat, p = 0.0, 1.0
+        ci_low, ci_high = (m2 - m1), (m2 - m1)
+        df = float(n1 + n2 - 2)
+    else:
+        df_num = (v1 / n1 + v2 / n2) ** 2
+        df_den = (v1**2) / (n1**2 * (n1 - 1)) + (v2**2) / (n2**2 * (n2 - 1))
+        df = float(df_num / df_den) if df_den > 0 else float(n1 + n2 - 2)
+
+        diff = (m2 - m1)
+        t_stat = float(diff / se)
+        p = float(2 * stats.t.sf(np.abs(t_stat), df=df))
+        tcrit = float(stats.t.ppf(1 - alpha / 2, df=df))
+        ci_low = float(diff - tcrit * se)
+        ci_high = float(diff + tcrit * se)
+
+    return {
+        "n_control": int(n1),
+        "n_test": int(n2),
+        "mean_control": m1,
+        "mean_test": m2,
+        "diff": float(m2 - m1),
+        "p_value": p,
+        "t_stat": t_stat,
+        "df": df,
+        "ci_low": ci_low,
+        "ci_high": ci_high,
+    }
+
+
+def _cuped_adjust(y: np.ndarray, x: np.ndarray) -> tuple[np.ndarray, float]:
+    y = y.astype(float)
+    x = x.astype(float)
+    mask = np.isfinite(y) & np.isfinite(x)
+    y2, x2 = y[mask], x[mask]
+    if len(y2) < 3:
+        return y, 0.0
+
+    vx = float(np.var(x2, ddof=1))
+    if vx <= 0:
+        return y, 0.0
+
+    cov = float(np.cov(y2, x2, ddof=1)[0, 1])
+    theta = cov / vx
+    x_mean = float(np.mean(x2))
+    y_adj = y - theta * (x - x_mean)
+    return y_adj, float(theta)
+
+
+def _ratio(num: pd.Series, den: pd.Series) -> pd.Series:
+    den = pd.to_numeric(den, errors="coerce")
+    num = pd.to_numeric(num, errors="coerce")
+    return num / den.replace(0, np.nan)
+
+
+def _linearize(num: pd.Series, den: pd.Series, r0: float) -> pd.Series:
+    num = pd.to_numeric(num, errors="coerce")
+    den = pd.to_numeric(den, errors="coerce")
+    return num - r0 * den
+
+
+def _plot_hist_by_group(df: pd.DataFrame, group_col: str, control: str, test: str, col: str, title: str):
+    import matplotlib.pyplot as plt
+
+    a = df.loc[df[group_col] == control, col].dropna().to_numpy()
+    b = df.loc[df[group_col] == test, col].dropna().to_numpy()
+
+    fig = plt.figure()
+    plt.hist(a, bins=40, density=True, alpha=0.6, label=control)
+    plt.hist(b, bins=40, density=True, alpha=0.6, label=test)
+    plt.title(title)
+    plt.xlabel(col)
+    plt.ylabel("density")
+    plt.legend()
+    return fig
 
 
 def cmd_cuped_ratio(args) -> int:
-    if not (0.0 < args.alpha < 1.0):
-        raise ValueError("--alpha must be in (0, 1).")
+    if getattr(args, "out", None):
+        if getattr(args, "out_json", None) or getattr(args, "out_md", None):
+            _warn("`--out` is set; ignoring `--out-json` / `--out-md` (backward-compat).")
 
-    df = read_csv(args.input)
+    df = pd.read_csv(args.input)
 
-    g = df[args.group_col].astype(str).to_numpy()
-    mask_c = g == args.control
-    mask_t = g == args.test
+    required = {args.group_col, args.num, args.den, args.num_pre, args.den_pre}
+    missing = sorted([c for c in required if c not in df.columns])
+    if missing:
+        raise ValueError(f"Missing required columns: {missing}")
 
-    if mask_c.sum() == 0 or mask_t.sum() == 0:
-        raise ValueError("Empty control/test group. Check --group-col/--control/--test.")
+    df = df.copy()
 
-    num = df[args.num].to_numpy(float)
-    den = df[args.den].to_numpy(float)
-    num_pre = df[args.num_pre].to_numpy(float)
-    den_pre = df[args.den_pre].to_numpy(float)
+    df["_ratio_post"] = _ratio(df[args.num], df[args.den])
 
-    # Baselines from control only (standard approach)
-    r0_post = ratio_point(num[mask_c], den[mask_c])
-    r0_pre = ratio_point(num_pre[mask_c], den_pre[mask_c])
+    # Group-level ratio baseline
+    d_control = df[df[args.group_col] == args.control]
+    d_test = df[df[args.group_col] == args.test]
+    if len(d_control) == 0 or len(d_test) == 0:
+        raise ValueError("Control/test group is empty. Check --group-col/--control/--test values.")
 
-    z = linearize_ratio(num, den, r0_post)
-    z_pre = linearize_ratio(num_pre, den_pre, r0_pre)
+    r0_post = float(d_control[args.num].sum() / d_control[args.den].replace(0, np.nan).sum())
+    r0_pre = float(d_control[args.num_pre].sum() / d_control[args.den_pre].replace(0, np.nan).sum())
 
-    z_c, z_t = z[mask_c], z[mask_t]
-    zpre_c, zpre_t = z_pre[mask_c], z_pre[mask_t]
+    # Linearization
+    df["_lin_post"] = _linearize(df[args.num], df[args.den], r0=r0_post)
+    df["_lin_pre"] = _linearize(df[args.num_pre], df[args.den_pre], r0=r0_pre)
 
-    p_base = _welch_pvalue(z_c, z_t)
+    lin_c = df.loc[df[args.group_col] == args.control, "_lin_post"].to_numpy(dtype=float)
+    lin_t = df.loc[df[args.group_col] == args.test, "_lin_post"].to_numpy(dtype=float)
 
-    cup_c, cup_t = cuped_split_adjust(z_c, zpre_c, z_t, zpre_t)
-    p_cuped = _welch_pvalue(cup_c.y_adj, cup_t.y_adj)
+    base_lin = _welch_mean_diff(lin_c, lin_t, alpha=float(args.alpha))
 
-    if not np.isfinite(p_base):
-        raise ValueError("Base p-value is not finite (check variance of linearized ratio).")
-    if not np.isfinite(p_cuped):
-        raise ValueError("CUPED p-value is not finite (check variance after adjustment).")
+    # Convert linearized diff to ratio diff (approx): diff_lin / mean_den_control
+    mean_den_c = float(d_control[args.den].replace(0, np.nan).mean())
+    ratio_diff_base = float(base_lin["diff"] / mean_den_c) if (mean_den_c and np.isfinite(mean_den_c)) else np.nan
 
-    reject_base = p_base < args.alpha
-    reject_cuped = p_cuped < args.alpha
+    # CUPED on linearized outcome with pre linearized covariate
+    y_all = df["_lin_post"].to_numpy(dtype=float)
+    x_all = df["_lin_pre"].to_numpy(dtype=float)
+    y_adj_all, theta = _cuped_adjust(y_all, x_all)
+    df["_lin_post_adj"] = y_adj_all
 
-    out = {
-        "input": args.input,
-        "group_col": args.group_col,
-        "control": args.control,
-        "test": args.test,
-        "metric": "ratio_linearized",
-        "num": args.num,
-        "den": args.den,
-        "num_pre": args.num_pre,
-        "den_pre": args.den_pre,
-        "alpha": args.alpha,
-        "n_control": int(mask_c.sum()),
-        "n_test": int(mask_t.sum()),
-        "ratio0_post_control": float(r0_post),
-        "ratio0_pre_control": float(r0_pre),
-        "p_value_base": float(p_base),
-        "p_value_cuped": float(p_cuped),
-        "theta": float(cup_c.theta),
-        "var_reduction_control": float(cup_c.var_reduction),
-        "var_reduction_test": float(cup_t.var_reduction),
-        "reject_base": bool(reject_base),
-        "reject_cuped": bool(reject_cuped),
+    lin_adj_c = df.loc[df[args.group_col] == args.control, "_lin_post_adj"].to_numpy(dtype=float)
+    lin_adj_t = df.loc[df[args.group_col] == args.test, "_lin_post_adj"].to_numpy(dtype=float)
+    cuped_lin = _welch_mean_diff(lin_adj_c, lin_adj_t, alpha=float(args.alpha))
+
+    ratio_diff_cuped = float(cuped_lin["diff"] / mean_den_c) if (mean_den_c and np.isfinite(mean_den_c)) else np.nan
+
+    control_ratio_post = float(d_control[args.num].sum() / d_control[args.den].replace(0, np.nan).sum())
+    rel_lift_base = float(ratio_diff_base / control_ratio_post) if control_ratio_post != 0 else np.nan
+    rel_lift_cuped = float(ratio_diff_cuped / control_ratio_post) if control_ratio_post != 0 else np.nan
+
+    warnings: list[str] = []
+    zero_den_share = float((pd.to_numeric(df[args.den], errors="coerce") == 0).mean())
+    if zero_den_share > 0:
+        warnings.append(f"Denominator has zeros (share={zero_den_share:.3g}). Ratios may be unstable; zeros are treated as NaN for per-user ratio plot.")
+
+    corr = float(pd.Series(df["_lin_post"]).corr(pd.Series(df["_lin_pre"])))
+    if np.isfinite(corr) and abs(corr) < 0.05:
+        warnings.append("Low corr(pre,post) on linearized variable. CUPED may give little variance reduction.")
+
+    summary = pd.DataFrame(
+        [
+            {
+                "method": "base_linearized",
+                "diff_linearized": base_lin["diff"],
+                "p_value": base_lin["p_value"],
+                "ratio_diff_approx": ratio_diff_base,
+                "rel_lift_approx": rel_lift_base,
+            },
+            {
+                "method": "cuped_linearized",
+                "diff_linearized": cuped_lin["diff"],
+                "p_value": cuped_lin["p_value"],
+                "ratio_diff_approx": ratio_diff_cuped,
+                "rel_lift_approx": rel_lift_cuped,
+            },
+        ]
+    )
+
+    report = f"""# tecore cuped-ratio report
+
+## Inputs
+- input: `{args.input}`
+- group_col: `{args.group_col}`
+- control: `{args.control}`
+- test: `{args.test}`
+- num/den (post): `{args.num}` / `{args.den}`
+- num/den (pre): `{args.num_pre}` / `{args.den_pre}`
+- alpha: `{args.alpha}`
+
+## Results (linearization, base vs CUPED)
+- control_ratio_post (sum(num)/sum(den), control): {control_ratio_post:.6g}
+- mean_den_control (per-unit mean den, control): {mean_den_c:.6g}
+
+| method | diff_linearized | p_value | ratio_diff_approx | rel_lift_approx |
+|---|---:|---:|---:|---:|
+| base | {base_lin["diff"]:.6g} | {base_lin["p_value"]:.4g} | {ratio_diff_base:.6g} | {rel_lift_base:.6g} |
+| cuped | {cuped_lin["diff"]:.6g} | {cuped_lin["p_value"]:.4g} | {ratio_diff_cuped:.6g} | {rel_lift_cuped:.6g} |
+
+## Diagnostics
+- r0_post (control): {r0_post:.6g}
+- r0_pre (control): {r0_pre:.6g}
+- theta: {theta:.6g}
+- corr(lin_pre, lin_post): {corr:.6g}
+
+## Warnings
+{("- " + "\n- ".join(warnings)) if warnings else "(none)"}
+"""
+
+    artifacts = {"report_md": None, "plots": [], "tables": []}
+    payload: dict[str, Any] = {
+        "command": "cuped-ratio",
+        "inputs": {
+            "input": args.input,
+            "group_col": args.group_col,
+            "control": args.control,
+            "test": args.test,
+            "num": args.num,
+            "den": args.den,
+            "num_pre": args.num_pre,
+            "den_pre": args.den_pre,
+            "alpha": float(args.alpha),
+        },
+        "estimates": {
+            "base": {
+                "diff_linearized": base_lin["diff"],
+                "p_value": base_lin["p_value"],
+                "ratio_diff_approx": ratio_diff_base,
+                "rel_lift_approx": rel_lift_base,
+            },
+            "cuped": {
+                "diff_linearized": cuped_lin["diff"],
+                "p_value": cuped_lin["p_value"],
+                "ratio_diff_approx": ratio_diff_cuped,
+                "rel_lift_approx": rel_lift_cuped,
+            },
+        },
+        "diagnostics": {
+            "r0_post_control": r0_post,
+            "r0_pre_control": r0_pre,
+            "theta": theta,
+            "corr_pre_post_linearized": corr,
+            "zero_den_share": zero_den_share,
+        },
+        "warnings": warnings,
+        "artifacts": artifacts,
     }
 
-    print(json.dumps(out, ensure_ascii=False, indent=2))
+    out_dir = prepare_out_dir(getattr(args, "out", None), command="cuped-ratio")
+    if out_dir is not None:
+        write_run_meta(out_dir, vars(args), extra={"command": "cuped-ratio"})
+        artifacts["tables"].append(write_table(out_dir, "summary", summary))
 
-    if args.out_json:
+        fig1 = _plot_hist_by_group(df, args.group_col, args.control, args.test, "_ratio_post", title="Post ratio distribution by group (per-unit)")
+        artifacts["plots"].append(save_plot(out_dir, "ratio_post_by_group", fig=fig1))
+
+        fig2 = _plot_hist_by_group(df, args.group_col, args.control, args.test, "_lin_post", title="Linearized post variable by group")
+        artifacts["plots"].append(save_plot(out_dir, "linearized_by_group", fig=fig2))
+
+        artifacts["report_md"] = "report.md"
+        payload["artifacts"] = artifacts
+        write_results_json(out_dir, payload)
+        write_report_md(out_dir, report)
+        return 0
+
+    if getattr(args, "out_json", None):
         Path(args.out_json).parent.mkdir(parents=True, exist_ok=True)
-        Path(args.out_json).write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
-
-    if args.out_md:
+        Path(args.out_json).write_text(
+            __import__("json").dumps(payload, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    if getattr(args, "out_md", None):
         Path(args.out_md).parent.mkdir(parents=True, exist_ok=True)
-        Path(args.out_md).write_text(render_cuped_report(out), encoding="utf-8")
+        Path(args.out_md).write_text(report, encoding="utf-8")
 
     return 0

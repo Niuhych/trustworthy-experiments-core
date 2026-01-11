@@ -11,6 +11,7 @@ from tecore.cli.commands.audit import cmd_audit
 from tecore.cli.commands.cuped import cmd_cuped
 from tecore.cli.commands.cuped_ratio import cmd_cuped_ratio
 from tecore.cli.commands.validate import cmd_validate
+from tecore.cli.commands.causal_impact import cmd_causal_impact
 
 
 def _fail(msg: str) -> int:
@@ -121,5 +122,26 @@ def cmd_run_config(args) -> int:
         if merged.get("out") is None:
             return _fail("audit requires `out` (bundle dir)")
         return int(cmd_audit(_as_args(merged)))
+
+        if command in {"causal-impact", "causal_impact"}:
+        if input_path is None:
+            return _fail("causal-impact requires `input`")
+        merged = {
+            **base_args,
+            "input": input_path,
+            "schema": params.get("schema", cfg.get("schema", "timeseries_causal_impact")),
+            "date_col": params.get("date_col", "date"),
+            "y": params.get("y"),
+            "x": params.get("x", ""),
+            "intervention": params.get("intervention"),
+            "alpha": float(params.get("alpha", 0.05)),
+            "bootstrap_iters": int(params.get("bootstrap_iters", 200)),
+            "n_placebos": int(params.get("n_placebos", 0)),
+            "seed": int(params.get("seed", 42)),
+            "audit": audit_flag,
+        }
+        if not merged["y"] or not merged["intervention"]:
+            return _fail("causal-impact requires params.y and params.intervention")
+        return int(cmd_causal_impact(_as_args(merged)))
 
     return _fail(f"Unknown command: {command}")

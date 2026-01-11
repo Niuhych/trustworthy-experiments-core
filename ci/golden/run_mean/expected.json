@@ -1,0 +1,12 @@
+{
+  "required_files": ["results.json", "report.md", "run_meta.json"],
+  "plot_files": ["plots/y_post_by_group.png", "plots/x_vs_y_scatter.png"],
+  "results_checks": {
+    "estimates.base.diff": { "value": 0.0, "rtol": 1e-6, "atol": 1e-6 },
+    "estimates.cuped.diff": { "value": 0.0, "rtol": 1e-6, "atol": 1e-6 },
+    "diagnostics.theta": { "value": 0.0, "rtol": 1e-6, "atol": 1e-6 }
+  },
+  "csv_checks": [
+    { "rel": "tables/summary.csv", "key_cols": ["method"], "rtol": 1e-6, "atol": 1e-6 }
+  ]
+}

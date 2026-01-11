@@ -85,6 +85,7 @@ jobs:
           tecore run --config configs/templates/audit_ratio.yaml
           tecore run --config configs/templates/cuped_example.yaml
           tecore run --config configs/templates/cuped_ratio_example.yaml
+          tecore run --config configs/templates/causal_impact_example.yaml
           
           python ci/verify_bundle.py \
             out/template_validate_user_level \

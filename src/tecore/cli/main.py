@@ -41,11 +41,9 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--transform", choices=["raw", "winsor", "log1p"], default="raw")
     sp.add_argument("--winsor-q", type=float, default=0.99)
 
-    # Backward-compat outputs (kept for now)
     sp.add_argument("--out-json", dest="out_json", default=None, help="(Deprecated) Write results JSON to a file.")
     sp.add_argument("--out-md", dest="out_md", default=None, help="(Deprecated) Write markdown report to a file.")
 
-    # New unified bundle output
     sp.add_argument("--out", default=None, help="Output directory for report bundle (e.g. results/run_001).")
     sp.add_argument(
         "--audit",
@@ -65,11 +63,9 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--den-pre", required=True, help="Pre-period denominator column (e.g., sessions_pre).")
     sp.add_argument("--alpha", type=float, default=0.05)
 
-    # Backward-compat outputs (kept for now)
     sp.add_argument("--out-json", dest="out_json", default=None, help="(Deprecated) Write results JSON to a file.")
     sp.add_argument("--out-md", dest="out_md", default=None, help="(Deprecated) Write markdown report to a file.")
 
-    # New unified bundle output
     sp.add_argument("--out", default=None, help="Output directory for report bundle (e.g. results/run_001).")
     sp.add_argument(
         "--audit",
@@ -93,6 +89,13 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--bootstrap-iters", dest="bootstrap_iters", type=int, default=200)
     sp.add_argument("--n-placebos", dest="n_placebos", type=int, default=0)
     sp.add_argument("--seed", type=int, default=42)
+    sp.add_argument(
+        "--pre-period-min-points",
+        dest="pre_period_min_points",
+        type=int,
+        default=30,
+        help="Minimum number of pre-period points required (quality gate).",
+    )
     sp.add_argument("--out", default=None, help="Output directory for report bundle.")
     sp.add_argument("--audit", action="store_true", help="Run audit/guardrails and include in bundle.")
     sp.set_defaults(func=cmd_causal_impact)

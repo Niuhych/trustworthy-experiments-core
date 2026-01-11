@@ -43,6 +43,9 @@ jobs:
             --num-pre revenue_pre --den-pre sessions_pre \
             --out out/run_ratio
 
+          echo "=== dirs under out/audit_user_level ==="
+          find out/audit_user_level -maxdepth 2 -type d -print || true
+
       - name: Upload reports
         uses: actions/upload-artifact@v4
         with:

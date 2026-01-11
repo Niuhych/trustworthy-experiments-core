@@ -52,6 +52,10 @@ jobs:
           tecore run --config configs/templates/cuped_ratio_example.yaml
           tecore run --config configs/templates/causal_impact_example.yaml
 
+      - name: Verify causal-impact contract
+        run: |
+          python ci/verify_causal_contract.py out/yaml_ci_001
+
       - name: Update ci/golden from out/
         run: |
           python ci/golden_update.py --golden ci/golden --out out --bundles run_mean run_ratio yaml_ci_001

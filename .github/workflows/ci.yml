@@ -30,36 +30,18 @@ jobs:
           tecore --help
           tecore version
 
-          tecore validate \
-            --input examples/example_user_level.csv \
-            --schema b2c_user_level \
-            --out out/validate_user_level
+          tecore validate --input examples/example_user_level.csv --schema b2c_user_level --out out/validate_user_level
+          tecore validate --input examples/example_ratio.csv --schema b2c_ratio --out out/validate_ratio
 
-          # standalone audit bundle (command)
-          tecore audit \
-            --input examples/example_user_level.csv \
-            --schema b2c_user_level \
-            --out out/audit_user_level
+          tecore audit --input examples/example_user_level.csv --schema b2c_user_level --out out/audit_user_level
+          tecore audit --input examples/example_ratio.csv --schema b2c_ratio --out out/audit_ratio
 
-          # cuped bundle + embedded audit in the same out dir
           tecore cuped \
             --input examples/example_user_level.csv \
             --y revenue --x revenue_pre \
             --out out/run_mean \
             --audit
 
-          tecore validate \
-            --input examples/example_ratio.csv \
-            --schema b2c_ratio \
-            --out out/validate_ratio
-
-          # standalone audit bundle (command)
-          tecore audit \
-            --input examples/example_ratio.csv \
-            --schema b2c_ratio \
-            --out out/audit_ratio
-
-          # cuped-ratio bundle + embedded audit in the same out dir
           tecore cuped-ratio \
             --input examples/example_ratio.csv \
             --num revenue --den sessions \
@@ -70,8 +52,59 @@ jobs:
           tecore run --config configs/templates/cuped_example.yaml
           tecore run --config configs/templates/cuped_ratio_example.yaml
 
+          python - << 'PY'
+          import numpy as np
+          import pandas as pd
+          from pathlib import Path
+
+          rng = np.random.default_rng(42)
+
+          n = 90
+          dates = pd.date_range("2025-01-01", periods=n, freq="D")
+
+          x1 = rng.normal(0, 1, n).cumsum()
+          x2 = rng.normal(0, 1, n).cumsum()
+
+          y = 100 + 0.5 * x1 + 0.2 * x2 + rng.normal(0, 1.0, n)
+
+          intervention_date = pd.Timestamp("2025-02-20")  # pre = 50 days
+          post_mask = dates >= intervention_date
+          y[post_mask] += 5.0
+
+          df = pd.DataFrame({
+              "date": dates.strftime("%Y-%m-%d"),
+              "y": y,
+              "x1": x1,
+              "x2": x2,
+          })
+
+          Path("out").mkdir(parents=True, exist_ok=True)
+          df.to_csv("out/example_ts_long.csv", index=False)
+
+          cfg = f"""
+          command: causal-impact
+          input: out/example_ts_long.csv
+          out: out/yaml_ci_001
+          params:
+            schema: timeseries_causal_impact
+            date_col: date
+            y: y
+            x: x1, x2
+            intervention: "{intervention_date.strftime('%Y-%m-%d')}"
+            bootstrap_iters: 50
+            n_placebos: 0
+            seed: 42
+          audit: true
+          """.strip() + "\n"
+
+          Path("out/ci_causal.yaml").write_text(cfg, encoding="utf-8")
+          print("Wrote out/example_ts_long.csv and out/ci_causal.yaml")
+          PY
+
+          tecore run --config out/ci_causal.yaml
+
           echo "=== out tree (files) ==="
-          find out -maxdepth 4 -type f -print || true
+          find out -type f -maxdepth 4 -print | sort || true
 
           echo "=== dirs under out/run_mean ==="
           find out/run_mean -maxdepth 2 -type d -print || true
@@ -79,25 +112,20 @@ jobs:
           echo "=== dirs under out/run_ratio ==="
           find out/run_ratio -maxdepth 2 -type d -print || true
 
-          tecore run --config configs/templates/validate_user_level.yaml
-          tecore run --config configs/templates/validate_ratio.yaml
-          tecore run --config configs/templates/audit_user_level.yaml
-          tecore run --config configs/templates/audit_ratio.yaml
-          tecore run --config configs/templates/cuped_example.yaml
-          tecore run --config configs/templates/cuped_ratio_example.yaml
-          tecore run --config configs/templates/causal_impact_example.yaml
-          
+      - name: Verify bundles
+        run: |
           python ci/verify_bundle.py \
-            out/template_validate_user_level \
-            out/template_validate_ratio \
-            out/template_audit_user_level \
-            out/template_audit_ratio \
+            out/validate_user_level \
+            out/validate_ratio \
+            out/audit_user_level \
+            out/audit_ratio \
+            out/run_mean \
+            out/run_ratio \
             out/yaml_run_mean \
             out/yaml_run_ratio \
             out/yaml_ci_001
 
       - name: Upload reports
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: tecore-reports

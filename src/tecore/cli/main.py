@@ -8,6 +8,7 @@ from tecore.cli.commands.cuped_ratio import cmd_cuped_ratio
 from tecore.cli.commands.validate import cmd_validate
 from tecore.cli.commands.version import cmd_version
 from tecore.cli.commands.run_config import cmd_run_config
+from tecore.cli.commands.causal_impact import cmd_causal_impact
 
 
 def build_parser() -> argparse.ArgumentParser:

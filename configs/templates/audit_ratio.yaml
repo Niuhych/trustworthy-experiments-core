@@ -1,0 +1,6 @@
+command: audit
+input: examples/example_ratio.csv
+out: out/template_audit_ratio
+
+params:
+  schema: b2c_ratio

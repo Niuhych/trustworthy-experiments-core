@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 import sys
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
@@ -116,107 +115,6 @@ def _accepted_params(cls) -> set[str]:
     params = set(sig.parameters.keys())
     params.discard("self")
     return params
-
-
-def _build_dataspec(
-    DataSpec,
-    *,
-    date_col: str,
-    y_col: str,
-    x_cols: list[str],
-    intervention_dt: pd.Timestamp,
-    df: pd.DataFrame,
-):
-    """
-    Construct DataSpec using introspection + mapping for common parameter names.
-    """
-    p = _accepted_params(DataSpec)
-
-    pre_start = pd.to_datetime(df[date_col].min())
-    pre_end = pd.to_datetime(intervention_dt) - pd.Timedelta(days=1)
-    post_start = pd.to_datetime(intervention_dt)
-    post_end = pd.to_datetime(df[date_col].max())
-
-    kwargs: dict[str, Any] = {}
-
-    for name in ["date_col", "date", "ds", "time_col", "t_col"]:
-        if name in p:
-            kwargs[name] = date_col
-            break
-
-    for name in ["y_col", "y", "outcome", "target", "metric", "outcome_col"]:
-        if name in p:
-            kwargs[name] = y_col
-            break
-
-    for name in ["x", "x_cols", "covariates", "features", "controls", "regressors", "x_col_list"]:
-        if name in p:
-            kwargs[name] = x_cols
-            break
-
-    for name in ["intervention", "intervention_date", "t0", "post_start", "start_post", "cutoff", "treatment_start"]:
-        if name in p:
-            kwargs[name] = intervention_dt
-            break
-
-    if "pre_period" in p:
-        kwargs["pre_period"] = (pre_start, pre_end)
-    if "post_period" in p:
-        kwargs["post_period"] = (post_start, post_end)
-
-    if "pre_start" in p:
-        kwargs["pre_start"] = pre_start
-    if "pre_end" in p:
-        kwargs["pre_end"] = pre_end
-    if "post_start" in p and "post_start" not in kwargs:
-        kwargs["post_start"] = post_start
-    if "post_end" in p:
-        kwargs["post_end"] = post_end
-
-    return DataSpec(**kwargs)
-
-
-def _build_config(
-    ImpactConfig,
-    *,
-    intervention_dt: pd.Timestamp,
-    alpha: float,
-    bootstrap_iters: int,
-    n_placebos: int,
-    seed: int,
-):
-    """
-    Construct ImpactConfig using introspection + mapping for common names.
-    """
-    p = _accepted_params(ImpactConfig)
-    kwargs: dict[str, Any] = {}
-
-    for name in ["intervention_date", "intervention", "t0", "cutoff", "treatment_start", "post_start"]:
-        if name in p:
-            kwargs[name] = intervention_dt
-            break
-
-    for name in ["alpha", "significance", "p_alpha"]:
-        if name in p:
-            kwargs[name] = float(alpha)
-            break
-
-    for name in ["bootstrap_iters", "n_bootstrap", "num_bootstrap", "boot_iters", "n_boot_iters"]:
-        if name in p:
-            kwargs[name] = int(bootstrap_iters)
-            break
-
-    for name in ["n_placebos", "num_placebos", "placebo_iters", "placebos"]:
-        if name in p:
-            kwargs[name] = int(n_placebos)
-            break
-
-    for name in ["seed", "random_state", "rng_seed"]:
-        if name in p:
-            kwargs[name] = int(seed)
-            break
-
-    return ImpactConfig(**kwargs)
 
 
 def _normalize_effect_df(effect_df: pd.DataFrame, *, intervention_dt: pd.Timestamp) -> pd.DataFrame:
@@ -339,22 +237,28 @@ def cmd_causal_impact(args) -> int:
             f"Import error: {e}"
         )
 
-    spec = _build_dataspec(
-        DataSpec,
+    # Parse covariates
+    x_cols = [c.strip() for c in (getattr(args, "x", "") or "").split(",") if c.strip()]
+    
+    # Stable mapping: CLI/YAML -> core schema
+    spec = DataSpec(
         date_col=date_col,
         y_col=y_col,
         x_cols=x_cols,
-        intervention_dt=intervention_dt,
-        df=df,
     )
-
-    cfg = _build_config(
-        ImpactConfig,
-        intervention_dt=intervention_dt,
+    
+    n_placebos = int(getattr(args, "n_placebos", 0))
+    seed = int(getattr(args, "seed", 42))
+    pre_min = int(getattr(args, "pre_period_min_points", 30))
+    
+    cfg = ImpactConfig(
+        intervention_date=intervention_dt,
         alpha=float(getattr(args, "alpha", 0.05)),
         bootstrap_iters=int(getattr(args, "bootstrap_iters", 200)),
-        n_placebos=int(getattr(args, "n_placebos", 0)),
-        seed=int(getattr(args, "seed", 42)),
+        n_placebos=n_placebos,
+        run_placebo=bool(n_placebos > 0),
+        random_state=seed,
+        pre_period_min_points=pre_min,
     )
 
     call_sig = inspect.signature(run_impact)

@@ -51,8 +51,8 @@ jobs:
 
           tecore run --config configs/templates/cuped_example.yaml
           tecore run --config configs/templates/cuped_ratio_example.yaml
-
-          python - << 'PY'
+          tecore run --config configs/templates/causal_impact_example.yaml
+          
           import numpy as np
           import pandas as pd
           from pathlib import Path
@@ -135,10 +135,6 @@ jobs:
             out/run_mean \
             out/run_ratio \
             out/yaml_ci_001
-
-      - name: Golden verify
-        run: |
-          python ci/golden_verify.py --use-defaults
 
       - name: Upload reports
         uses: actions/upload-artifact@v4

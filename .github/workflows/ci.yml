@@ -28,31 +28,20 @@ jobs:
           tecore --help
           tecore version
 
-          mkdir -p out
-
-          tecore validate \
-            --input examples/example_user_level.csv \
-            --schema b2c_user_level \
-            --out out/validate_user_level
-
+          tecore validate --input examples/example_user_level.csv --schema b2c_user_level --out out/validate_user_level
+          tecore audit --input examples/example_user_level.csv --schema b2c_user_level --out out/audit_user_level
           tecore cuped \
             --input examples/example_user_level.csv \
             --y revenue --x revenue_pre \
             --out out/run_mean
 
-          tecore validate \
-            --input examples/example_ratio.csv \
-            --schema b2c_ratio \
-            --out out/validate_ratio
-
+          tecore validate --input examples/example_ratio.csv --schema b2c_ratio --out out/validate_ratio
+          tecore audit --input examples/example_ratio.csv --schema b2c_ratio --out out/audit_ratio
           tecore cuped-ratio \
             --input examples/example_ratio.csv \
             --num revenue --den sessions \
             --num-pre revenue_pre --den-pre sessions_pre \
             --out out/run_ratio
-
-          echo "=== out/ tree ==="
-          find out -maxdepth 4 -type f -print
 
       - name: Upload reports
         uses: actions/upload-artifact@v4

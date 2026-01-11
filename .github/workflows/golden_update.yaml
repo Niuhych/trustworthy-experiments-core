@@ -48,44 +48,12 @@ jobs:
             --out out/run_ratio \
             --audit
 
-          python - << 'PY'
-          import numpy as np
-          import pandas as pd
-          from pathlib import Path
-
-          rng = np.random.default_rng(42)
-          n = 90
-          dates = pd.date_range("2025-01-01", periods=n, freq="D")
-          x1 = rng.normal(0, 1, n).cumsum()
-          x2 = rng.normal(0, 1, n).cumsum()
-          y = 100 + 0.5 * x1 + 0.2 * x2 + rng.normal(0, 1.0, n)
-
-          intervention_date = pd.Timestamp("2025-02-20")
-          y[dates >= intervention_date] += 5.0
-
-          df = pd.DataFrame({"date": dates.strftime("%Y-%m-%d"), "y": y, "x1": x1, "x2": x2})
-          Path("out").mkdir(parents=True, exist_ok=True)
-          df.to_csv("out/example_ts_long.csv", index=False)
-
-          cfg = f"""
-          command: causal-impact
-          input: out/example_ts_long.csv
-          out: out/yaml_ci_001
-          params:
-            schema: timeseries_causal_impact
-            date_col: date
-            y: y
-            x: x1, x2
-            intervention: "{intervention_date.strftime('%Y-%m-%d')}"
-            bootstrap_iters: 50
-            n_placebos: 0
-            seed: 42
-          audit: true
-          """.strip() + "\n"
-          Path("out/ci_causal.yaml").write_text(cfg, encoding="utf-8")
-          PY
-
+          tecore run --config configs/templates/cuped_example.yaml
+          tecore run --config configs/templates/cuped_ratio_example.yaml
           tecore run --config configs/templates/causal_impact_example.yaml
+
+          echo "=== out tree (files) ==="
+          find out -type f -maxdepth 4 -print | sort || true
 
       - name: Update ci/golden from out/
         run: |

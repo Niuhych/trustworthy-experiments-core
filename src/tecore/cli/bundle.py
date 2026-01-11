@@ -46,17 +46,18 @@ def ensure_subdirs(out_dir: Path, names: list[str]) -> None:
         (out_dir / n).mkdir(parents=True, exist_ok=True)
 
 
-def prepare_out_dir(out: str | None, command: str) -> Path | None:
-    """
-    If out is None -> returns None.
-    If out is given -> creates directory and standard subdirs.
-    """
-    if not out:
-        return None
-    out_dir = Path(out).expanduser().resolve()
+def prepare_out_dir(out: str | None, command: str) -> Path:
+    from datetime import datetime
+    from pathlib import Path
+
+    if out is None or str(out).strip() == "":
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        out_dir = Path("results") / command / ts
+    else:
+        out_dir = Path(out)
+
     out_dir.mkdir(parents=True, exist_ok=True)
-    ensure_subdirs(out_dir, ["plots", "tables"])
-    # NOTE: audit files are optional; we still reserve the top-level filenames.
+    ensure_subdirs(out_dir, ["tables", "plots"])
     return out_dir
 
 

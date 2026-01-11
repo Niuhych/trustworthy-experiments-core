@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from tecore.cli.bundle import (
+    ensure_subdirs,
     prepare_out_dir,
     write_audit_json,
     write_audit_md,
@@ -92,6 +93,14 @@ def _denominator_like_cols(df: pd.DataFrame) -> list[str]:
 
 def cmd_audit(args) -> int:
     df = pd.read_csv(args.input)
+
+    schema = str(getattr(args, "schema", "b2c_user_level"))
+
+    out_dir = prepare_out_dir(getattr(args, "out", None), command="audit")
+    if out_dir is None:
+        raise ValueError("`tecore audit` requires --out (bundle directory).")
+
+    ensure_subdirs(out_dir, ["tables", "plots"])
 
     schema = str(getattr(args, "schema", "b2c_user_level"))
     out_dir = prepare_out_dir(getattr(args, "out", None), command="audit")

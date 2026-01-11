@@ -27,7 +27,7 @@ jobs:
       - name: Build out/ bundles (same as CI)
         run: |
           set -e
-          rm -rf out || true
+          python scripts/build_out.py --clean
 
           tecore validate --input examples/example_user_level.csv --schema b2c_user_level --out out/validate_user_level
           tecore validate --input examples/example_ratio.csv --schema b2c_ratio --out out/validate_ratio

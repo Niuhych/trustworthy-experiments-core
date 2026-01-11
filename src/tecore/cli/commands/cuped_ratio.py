@@ -17,6 +17,7 @@ from tecore.cli.bundle import (
     write_table,
 )
 
+
 def _warn(msg: str) -> None:
     print(f"[tecore][warn] {msg}", file=sys.stderr)
 
@@ -110,6 +111,7 @@ def _plot_hist_by_group(df: pd.DataFrame, group_col: str, control: str, test: st
 
 
 def cmd_cuped_ratio(args) -> int:
+    # Backward-compat: if --out is set, ignore --out-json/--out-md
     if getattr(args, "out", None):
         if getattr(args, "out_json", None) or getattr(args, "out_md", None):
             _warn("`--out` is set; ignoring `--out-json` / `--out-md` (backward-compat).")
@@ -123,16 +125,24 @@ def cmd_cuped_ratio(args) -> int:
 
     df = df.copy()
 
+    # Per-user ratio (for plot only)
     df["_ratio_post"] = _ratio(df[args.num], df[args.den])
 
-    # Group-level ratio baseline
     d_control = df[df[args.group_col] == args.control]
     d_test = df[df[args.group_col] == args.test]
     if len(d_control) == 0 or len(d_test) == 0:
         raise ValueError("Control/test group is empty. Check --group-col/--control/--test values.")
 
-    r0_post = float(d_control[args.num].sum() / d_control[args.den].replace(0, np.nan).sum())
-    r0_pre = float(d_control[args.num_pre].sum() / d_control[args.den_pre].replace(0, np.nan).sum())
+    # Control group ratio baselines
+    den_sum_post_c = d_control[args.den].replace(0, np.nan).sum()
+    den_sum_pre_c = d_control[args.den_pre].replace(0, np.nan).sum()
+    if not np.isfinite(den_sum_post_c) or den_sum_post_c == 0:
+        raise ValueError("Control denominator sum (post) is zero/NaN. Cannot compute r0_post.")
+    if not np.isfinite(den_sum_pre_c) or den_sum_pre_c == 0:
+        raise ValueError("Control denominator sum (pre) is zero/NaN. Cannot compute r0_pre.")
+
+    r0_post = float(d_control[args.num].sum() / den_sum_post_c)
+    r0_pre = float(d_control[args.num_pre].sum() / den_sum_pre_c)
 
     # Linearization
     df["_lin_post"] = _linearize(df[args.num], df[args.den], r0=r0_post)
@@ -140,10 +150,9 @@ def cmd_cuped_ratio(args) -> int:
 
     lin_c = df.loc[df[args.group_col] == args.control, "_lin_post"].to_numpy(dtype=float)
     lin_t = df.loc[df[args.group_col] == args.test, "_lin_post"].to_numpy(dtype=float)
-
     base_lin = _welch_mean_diff(lin_c, lin_t, alpha=float(args.alpha))
 
-    # Convert linearized diff to ratio diff (approx): diff_lin / mean_den_control
+    # Convert linearized diff -> ratio diff (approx): diff_lin / mean_den_control
     mean_den_c = float(d_control[args.den].replace(0, np.nan).mean())
     ratio_diff_base = float(base_lin["diff"] / mean_den_c) if (mean_den_c and np.isfinite(mean_den_c)) else np.nan
 
@@ -159,18 +168,23 @@ def cmd_cuped_ratio(args) -> int:
 
     ratio_diff_cuped = float(cuped_lin["diff"] / mean_den_c) if (mean_den_c and np.isfinite(mean_den_c)) else np.nan
 
-    control_ratio_post = float(d_control[args.num].sum() / d_control[args.den].replace(0, np.nan).sum())
+    control_ratio_post = float(d_control[args.num].sum() / den_sum_post_c)
     rel_lift_base = float(ratio_diff_base / control_ratio_post) if control_ratio_post != 0 else np.nan
     rel_lift_cuped = float(ratio_diff_cuped / control_ratio_post) if control_ratio_post != 0 else np.nan
 
     warnings: list[str] = []
     zero_den_share = float((pd.to_numeric(df[args.den], errors="coerce") == 0).mean())
     if zero_den_share > 0:
-        warnings.append(f"Denominator has zeros (share={zero_den_share:.3g}). Ratios may be unstable; zeros are treated as NaN for per-user ratio plot.")
+        warnings.append(
+            f"Denominator has zeros (share={zero_den_share:.3g}). "
+            "Per-user ratio uses NaN for zero denominators; inference is on linearized variable."
+        )
 
     corr = float(pd.Series(df["_lin_post"]).corr(pd.Series(df["_lin_pre"])))
     if np.isfinite(corr) and abs(corr) < 0.05:
         warnings.append("Low corr(pre,post) on linearized variable. CUPED may give little variance reduction.")
+
+    warnings_block = ("- " + "\n- ".join(warnings)) if warnings else "(none)"
 
     summary = pd.DataFrame(
         [
@@ -216,12 +230,13 @@ def cmd_cuped_ratio(args) -> int:
 - r0_pre (control): {r0_pre:.6g}
 - theta: {theta:.6g}
 - corr(lin_pre, lin_post): {corr:.6g}
+- zero_den_share: {zero_den_share:.6g}
 
 ## Warnings
-{("- " + "\n- ".join(warnings)) if warnings else "(none)"}
+{warnings_block}
 """
 
-    artifacts = {"report_md": None, "plots": [], "tables": []}
+    artifacts: dict[str, Any] = {"report_md": None, "plots": [], "tables": []}
     payload: dict[str, Any] = {
         "command": "cuped-ratio",
         "inputs": {
@@ -255,6 +270,7 @@ def cmd_cuped_ratio(args) -> int:
             "theta": theta,
             "corr_pre_post_linearized": corr,
             "zero_den_share": zero_den_share,
+            "mean_den_control": mean_den_c,
         },
         "warnings": warnings,
         "artifacts": artifacts,
@@ -265,10 +281,14 @@ def cmd_cuped_ratio(args) -> int:
         write_run_meta(out_dir, vars(args), extra={"command": "cuped-ratio"})
         artifacts["tables"].append(write_table(out_dir, "summary", summary))
 
-        fig1 = _plot_hist_by_group(df, args.group_col, args.control, args.test, "_ratio_post", title="Post ratio distribution by group (per-unit)")
+        fig1 = _plot_hist_by_group(
+            df, args.group_col, args.control, args.test, "_ratio_post", title="Post ratio distribution by group (per-unit)"
+        )
         artifacts["plots"].append(save_plot(out_dir, "ratio_post_by_group", fig=fig1))
 
-        fig2 = _plot_hist_by_group(df, args.group_col, args.control, args.test, "_lin_post", title="Linearized post variable by group")
+        fig2 = _plot_hist_by_group(
+            df, args.group_col, args.control, args.test, "_lin_post", title="Linearized post variable by group"
+        )
         artifacts["plots"].append(save_plot(out_dir, "linearized_by_group", fig=fig2))
 
         artifacts["report_md"] = "report.md"
@@ -277,12 +297,16 @@ def cmd_cuped_ratio(args) -> int:
         write_report_md(out_dir, report)
         return 0
 
+    # Backward-compat (no --out): old behavior
     if getattr(args, "out_json", None):
+        import json
+
         Path(args.out_json).parent.mkdir(parents=True, exist_ok=True)
         Path(args.out_json).write_text(
-            __import__("json").dumps(payload, ensure_ascii=False, indent=2) + "\n",
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
+
     if getattr(args, "out_md", None):
         Path(args.out_md).parent.mkdir(parents=True, exist_ok=True)
         Path(args.out_md).write_text(report, encoding="utf-8")

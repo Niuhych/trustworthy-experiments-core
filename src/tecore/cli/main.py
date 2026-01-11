@@ -66,6 +66,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sp.set_defaults(func=cmd_cuped_ratio)
 
+        sp = sub.add_parser("audit", help="Audit/guardrails for an input dataset (writes bundle).")
+    sp.add_argument("--input", required=True, help="Path to CSV file.")
+    sp.add_argument("--schema", default="b2c_user_level", help="b2c_user_level | b2c_ratio | timeseries_causal_impact")
+    sp.add_argument("--out", required=True, help="Output directory for audit bundle (e.g. out/audit_001).")
+    sp.set_defaults(func=cmd_audit)
+
     return p
 
 

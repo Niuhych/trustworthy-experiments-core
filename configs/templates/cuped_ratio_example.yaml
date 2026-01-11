@@ -1,0 +1,15 @@
+command: cuped-ratio
+input: examples/example_ratio.csv
+out: out/yaml_run_ratio
+
+params:
+  group_col: group
+  control: control
+  test: test
+  num: revenue
+  den: sessions
+  num_pre: revenue_pre
+  den_pre: sessions_pre
+  alpha: 0.05
+
+audit: true

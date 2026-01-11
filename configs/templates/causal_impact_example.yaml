@@ -12,5 +12,6 @@ params:
   bootstrap_iters: 200
   n_placebos: 0
   seed: 42
+  pre_period_min_points: 30
 
 audit: true

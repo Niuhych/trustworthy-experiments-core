@@ -30,9 +30,6 @@ jobs:
           tecore --help
           tecore version
 
-          # ----------------------------
-          # USER-LEVEL (mean metric)
-          # ----------------------------
           tecore validate \
             --input examples/example_user_level.csv \
             --schema b2c_user_level \
@@ -51,9 +48,6 @@ jobs:
             --out out/run_mean \
             --audit
 
-          # ----------------------------
-          # RATIO (linearized)
-          # ----------------------------
           tecore validate \
             --input examples/example_ratio.csv \
             --schema b2c_ratio \
@@ -84,6 +78,21 @@ jobs:
 
           echo "=== dirs under out/run_ratio ==="
           find out/run_ratio -maxdepth 2 -type d -print || true
+
+          tecore run --config configs/templates/validate_user_level.yaml
+          tecore run --config configs/templates/validate_ratio.yaml
+          tecore run --config configs/templates/audit_user_level.yaml
+          tecore run --config configs/templates/audit_ratio.yaml
+          tecore run --config configs/templates/cuped_example.yaml
+          tecore run --config configs/templates/cuped_ratio_example.yaml
+          
+          python ci/verify_bundle.py \
+            out/template_validate_user_level \
+            out/template_validate_ratio \
+            out/template_audit_user_level \
+            out/template_audit_ratio \
+            out/yaml_run_mean \
+            out/yaml_run_ratio
 
       - name: Upload reports
         if: always()

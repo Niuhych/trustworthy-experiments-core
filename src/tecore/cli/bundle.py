@@ -72,8 +72,19 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def write_run_meta(out_dir: Path, args: Any, extra: dict[str, Any] | None = None) -> None:
-    args_dict = dict(args_dict)
+    # Normalize args into a dict for clean serialization
+    if isinstance(args, dict):
+        args_dict = dict(args)
+    else:
+        # argparse.Namespace / SimpleNamespace / arbitrary object
+        try:
+            args_dict = dict(vars(args))
+        except Exception:
+            args_dict = {"args": str(args)}
+
+    # Remove argparse dispatch function pointer if present
     args_dict.pop("func", None)
+
     pkg_ver = None
     if pkg_version is not None:
         try:
@@ -92,7 +103,7 @@ def write_run_meta(out_dir: Path, args: Any, extra: dict[str, Any] | None = None
             "python_implementation": platform.python_implementation(),
         },
         "cwd": os.getcwd(),
-        "args": _safe_json(args),
+        "args": _safe_json(args_dict),
     }
     if extra:
         meta["extra"] = _safe_json(extra)

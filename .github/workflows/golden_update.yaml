@@ -81,7 +81,7 @@ jobs:
           Path("out/ci_causal.yaml").write_text(cfg, encoding="utf-8")
           PY
 
-          tecore run --config out/ci_causal.yaml
+          tecore run --config configs/templates/causal_impact_example.yaml
 
       - name: Update ci/golden from out/
         run: |

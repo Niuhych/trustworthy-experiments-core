@@ -6,7 +6,6 @@ from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from tecore.cli.audit_api import write_audit_bundle
@@ -101,10 +100,17 @@ def _accepted_params(cls) -> set[str]:
     return params
 
 
-def _build_dataspec(DataSpec, *, date_col: str, y_col: str, x_cols: list[str], intervention_dt: pd.Timestamp, df: pd.DataFrame):
+def _build_dataspec(
+    DataSpec,
+    *,
+    date_col: str,
+    y_col: str,
+    x_cols: list[str],
+    intervention_dt: pd.Timestamp,
+    df: pd.DataFrame,
+):
     """
-    Construct DataSpec using introspection + a mapping of common parameter names.
-    This avoids breakage if internal tecore.causal.impact.DataSpec evolves.
+    Construct DataSpec using introspection + mapping for common parameter names.
     """
     p = _accepted_params(DataSpec)
 
@@ -152,7 +158,15 @@ def _build_dataspec(DataSpec, *, date_col: str, y_col: str, x_cols: list[str], i
     return DataSpec(**kwargs)
 
 
-def _build_config(ImpactConfig, *, intervention_dt: pd.Timestamp, alpha: float, bootstrap_iters: int, n_placebos: int, seed: int,):
+def _build_config(
+    ImpactConfig,
+    *,
+    intervention_dt: pd.Timestamp,
+    alpha: float,
+    bootstrap_iters: int,
+    n_placebos: int,
+    seed: int,
+):
     """
     Construct ImpactConfig using introspection + mapping for common names.
     """
@@ -187,10 +201,9 @@ def _build_config(ImpactConfig, *, intervention_dt: pd.Timestamp, alpha: float, 
     return ImpactConfig(**kwargs)
 
 
-def _normalize_effect_df(effect_df: pd.DataFrame) -> pd.DataFrame:
+def _normalize_effect_df(effect_df: pd.DataFrame, *, intervention_dt: pd.Timestamp) -> pd.DataFrame:
     """
-    Accept a variety of column naming conventions from internal run_impact
-    and normalize to:
+    Normalize to:
       date, y, y_cf, point_effect, cum_effect, is_post
     """
     df = effect_df.copy()
@@ -225,17 +238,13 @@ def _normalize_effect_df(effect_df: pd.DataFrame) -> pd.DataFrame:
                 df = df.rename(columns={c: "cum_effect"})
                 break
 
-    if "is_post" not in df.columns:
-        for c in ["post", "in_post", "is_post_period"]:
-            if c in df.columns:
-                df = df.rename(columns={c: "is_post"})
-                break
+    # Ensure datetime
+    if "date" in df.columns:
+        df["date"] = pd.to_datetime(df["date"], errors="coerce")
 
+    # is_post: prefer by date >= intervention
     if "is_post" not in df.columns and "date" in df.columns:
-        if "y_cf" in df.columns:
-            df["is_post"] = df["y_cf"].notna()
-        else:
-            df["is_post"] = False
+        df["is_post"] = df["date"] >= pd.to_datetime(intervention_dt)
 
     needed = ["date", "y", "y_cf", "point_effect", "cum_effect", "is_post"]
     miss = [c for c in needed if c not in df.columns]
@@ -243,6 +252,38 @@ def _normalize_effect_df(effect_df: pd.DataFrame) -> pd.DataFrame:
         raise RuntimeError(f"effect_df missing required columns after normalization: {miss}")
 
     return df
+
+
+def _impact_summary_payload(obj: Any) -> dict[str, Any]:
+    if obj is None:
+        return {}
+
+    if isinstance(obj, dict):
+        return {
+            "method": _to_payload(obj.get("method")),
+            "intervention_date": _to_payload(obj.get("intervention_date")),
+            "alpha": _to_payload(obj.get("alpha")),
+            "point_effect": _to_payload(obj.get("point_effect")),
+            "point_ci": _to_payload(obj.get("point_ci")),
+            "cum_effect": _to_payload(obj.get("cum_effect")),
+            "cum_ci": _to_payload(obj.get("cum_ci")),
+            "rel_effect": _to_payload(obj.get("rel_effect")),
+            "rel_ci": _to_payload(obj.get("rel_ci")),
+            "p_value": _to_payload(obj.get("p_value")),
+        }
+
+    return {
+        "method": _to_payload(getattr(obj, "method", None)),
+        "intervention_date": _to_payload(getattr(obj, "intervention_date", None)),
+        "alpha": _to_payload(getattr(obj, "alpha", None)),
+        "point_effect": _to_payload(getattr(obj, "point_effect", None)),
+        "point_ci": _to_payload(getattr(obj, "point_ci", None)),
+        "cum_effect": _to_payload(getattr(obj, "cum_effect", None)),
+        "cum_ci": _to_payload(getattr(obj, "cum_ci", None)),
+        "rel_effect": _to_payload(getattr(obj, "rel_effect", None)),
+        "rel_ci": _to_payload(getattr(obj, "rel_ci", None)),
+        "p_value": _to_payload(getattr(obj, "p_value", None)),
+    }
 
 
 def cmd_causal_impact(args) -> int:
@@ -273,7 +314,7 @@ def cmd_causal_impact(args) -> int:
         write_audit_bundle(out_dir, df=df, schema="timeseries_causal_impact", parent_command="causal-impact")
 
     try:
-        from tecore.causal.impact import ImpactConfig, DataSpec, run_impact 
+        from tecore.causal.impact import ImpactConfig, DataSpec, run_impact
     except Exception as e:
         raise RuntimeError(
             "Causal module import failed. Expected tecore.causal.impact with ImpactConfig/DataSpec/run_impact. "
@@ -298,37 +339,41 @@ def cmd_causal_impact(args) -> int:
         seed=int(getattr(args, "seed", 42)),
     )
 
-    import inspect as _inspect
-    
-    call_sig = _inspect.signature(run_impact)
+    call_sig = inspect.signature(run_impact)
     call_params = set(call_sig.parameters.keys())
-    
-    kwargs = {}
+
+    kwargs: dict[str, Any] = {}
     if "spec" in call_params:
         kwargs["spec"] = spec
     elif "data_spec" in call_params:
         kwargs["data_spec"] = spec
-    
+
     if "cfg" in call_params:
         kwargs["cfg"] = cfg
     elif "config" in call_params:
         kwargs["config"] = cfg
-    
+
     try:
         res = run_impact(df, **kwargs)
     except ValueError as e:
+        # standardized: input/config error => exit code 2
         _warn(str(e))
         return 2
 
-    effect_df = getattr(res, "effect_df", None)
+    # tecore.causal.impact.run_impact returns ImpactResult.effect_series (DataFrame)
+    effect_df = getattr(res, "effect_series", None)
     if effect_df is None:
-        # allow dict-like return
-        if isinstance(res, dict) and "effect_df" in res:
-            effect_df = res["effect_df"]
-    if not isinstance(effect_df, pd.DataFrame):
-        raise RuntimeError("run_impact did not return `effect_df` as a pandas DataFrame (field `effect_df`).")
+        effect_df = getattr(res, "effect_df", None)
+    if effect_df is None and isinstance(res, dict):
+        effect_df = res.get("effect_series") or res.get("effect_df")
 
-    effect_df = _normalize_effect_df(effect_df)
+    if not isinstance(effect_df, pd.DataFrame):
+        raise RuntimeError(
+            "run_impact did not return a pandas DataFrame for effect series. "
+            "Expected ImpactResult.effect_series (or dict key effect_series)."
+        )
+
+    effect_df = _normalize_effect_df(effect_df, intervention_dt=intervention_dt)
 
     effect_export = effect_df.copy()
     effect_export["date"] = pd.to_datetime(effect_export["date"]).dt.strftime("%Y-%m-%d")
@@ -347,10 +392,17 @@ def cmd_causal_impact(args) -> int:
     fig3 = _plot_cum_effect(effect_df, intervention_str)
     artifacts["plots"].append(save_plot(out_dir, "cumulative_effect", fig=fig3))
 
-    summary = getattr(res, "summary", None)
-    if summary is None and isinstance(res, dict):
-        summary = res.get("summary")
-    summary_payload = _to_payload(summary)
+    summary_payload = _impact_summary_payload(res)
+    diagnostics_payload = (
+        _to_payload(getattr(res, "diagnostics", {}))
+        if not isinstance(res, dict)
+        else _to_payload(res.get("diagnostics", {}))
+    )
+    warnings_payload = (
+        list(getattr(res, "warnings", []))
+        if not isinstance(res, dict)
+        else list(res.get("warnings", []))
+    )
 
     write_run_meta(out_dir, vars(args), extra={"command": "causal-impact"})
 
@@ -369,8 +421,8 @@ def cmd_causal_impact(args) -> int:
             "seed": int(getattr(args, "seed", 42)),
         },
         "estimates": {"summary": summary_payload},
-        "diagnostics": {},
-        "warnings": [],
+        "diagnostics": diagnostics_payload,
+        "warnings": warnings_payload,
         "artifacts": artifacts,
     }
     write_results_json(out_dir, payload)
@@ -381,7 +433,7 @@ def cmd_causal_impact(args) -> int:
 - input: `{args.input}`
 - date_col: `{date_col}`
 - y: `{y_col}`
-- x: `{", ".join(x_cols) if x_cols else "(none)" }`
+- x: `{", ".join(x_cols) if x_cols else "(none)"}`
 - intervention: `{intervention_str}`
 - alpha: `{float(getattr(args, "alpha", 0.05))}`
 - bootstrap_iters: `{int(getattr(args, "bootstrap_iters", 200))}`

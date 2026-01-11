@@ -73,6 +73,9 @@ jobs:
             --out out/run_ratio \
             --audit
 
+          tecore run --config configs/templates/cuped_example.yaml
+          tecore run --config configs/templates/cuped_ratio_example.yaml
+
           echo "=== out tree (files) ==="
           find out -maxdepth 4 -type f -print || true
 

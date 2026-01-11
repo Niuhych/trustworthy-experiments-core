@@ -41,6 +41,10 @@ jobs:
             out/yaml_run_ratio \
             out/yaml_ci_001
 
+      - name: Verify causal-impact contract
+        run: |
+          python ci/verify_causal_contract.py out/yaml_ci_001
+
       - name: Golden runs
         run: |
           python ci/golden_verify.py --golden ci/golden \

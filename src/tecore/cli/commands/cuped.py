@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from tecore.cli.audit_api import write_audit_bundle
 from tecore.cli.bundle import (
     prepare_out_dir,
     save_plot,
@@ -53,7 +54,6 @@ def _welch_mean_diff(a: np.ndarray, b: np.ndarray, alpha: float) -> dict[str, An
         ci_low, ci_high = (m2 - m1), (m2 - m1)
         df = float(n1 + n2 - 2)
     else:
-        # Welch–Satterthwaite df
         df_num = (v1 / n1 + v2 / n2) ** 2
         df_den = (v1**2) / (n1**2 * (n1 - 1)) + (v2**2) / (n2**2 * (n2 - 1))
         df = float(df_num / df_den) if df_den > 0 else float(n1 + n2 - 2)
@@ -142,10 +142,20 @@ def cmd_cuped(args) -> int:
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
 
+    # Compute out_dir ONCE (critical for future default-out behavior)
+    out_dir = prepare_out_dir(getattr(args, "out", None), command="cuped")
+
+    # Optional audit on RAW input before transformations
+    if getattr(args, "audit", False):
+        if out_dir is not None:
+            write_audit_bundle(out_dir, df=df, schema="b2c_user_level", parent_command="cuped")
+        else:
+            _warn("`--audit` is set but `--out` is not provided; skipping audit (nowhere to write).")
+
     # Transform y/x
     df = df.copy()
     df[args.y] = _apply_transform(df[args.y], args.transform, args.winsor_q)
-    df[args.x] = _apply_transform(df[args.x], "raw", args.winsor_q)  # covariate: keep raw by default
+    df[args.x] = _apply_transform(df[args.x], "raw", args.winsor_q)
 
     d_control = df[df[args.group_col] == args.control]
     d_test = df[df[args.group_col] == args.test]
@@ -178,7 +188,6 @@ def cmd_cuped(args) -> int:
 
     warnings_block = ("- " + "\n- ".join(warnings)) if warnings else "(none)"
 
-    out_dir = prepare_out_dir(getattr(args, "out", None), command="cuped")
     artifacts: dict[str, Any] = {"report_md": None, "plots": [], "tables": []}
 
     summary = pd.DataFrame(
@@ -245,14 +254,10 @@ def cmd_cuped(args) -> int:
         write_run_meta(out_dir, vars(args), extra={"command": "cuped"})
         artifacts["tables"].append(write_table(out_dir, "summary", summary))
 
-        fig1 = _plot_hist_by_group(
-            df, args.group_col, args.control, args.test, args.y, title="Post metric distribution by group"
-        )
+        fig1 = _plot_hist_by_group(df, args.group_col, args.control, args.test, args.y, title="Post metric distribution by group")
         artifacts["plots"].append(save_plot(out_dir, "y_post_by_group", fig=fig1))
 
-        fig2 = _plot_scatter(
-            df, args.group_col, args.control, args.test, x=args.x, y=args.y, title="Pre covariate vs post metric (sanity for CUPED)"
-        )
+        fig2 = _plot_scatter(df, args.group_col, args.control, args.test, x=args.x, y=args.y, title="Pre covariate vs post metric (sanity for CUPED)")
         artifacts["plots"].append(save_plot(out_dir, "x_vs_y_scatter", fig=fig2))
 
         artifacts["report_md"] = "report.md"
@@ -261,14 +266,12 @@ def cmd_cuped(args) -> int:
         write_report_md(out_dir, report)
         return 0
 
+    # Legacy outputs (no --out)
     if getattr(args, "out_json", None):
         import json
 
         Path(args.out_json).parent.mkdir(parents=True, exist_ok=True)
-        Path(args.out_json).write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        Path(args.out_json).write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     if getattr(args, "out_md", None):
         Path(args.out_md).parent.mkdir(parents=True, exist_ok=True)

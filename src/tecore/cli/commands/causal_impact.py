@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import sys
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
@@ -9,7 +10,14 @@ import numpy as np
 import pandas as pd
 
 from tecore.cli.audit_api import write_audit_bundle
-from tecore.cli.bundle import prepare_out_dir, save_plot, write_report_md, write_results_json, write_run_meta, write_table
+from tecore.cli.bundle import (
+    prepare_out_dir,
+    save_plot,
+    write_report_md,
+    write_results_json,
+    write_run_meta,
+    write_table,
+)
 
 
 def _warn(msg: str) -> None:
@@ -22,12 +30,10 @@ def _parse_x_list(x: str | None) -> list[str]:
     x = str(x).strip()
     if not x:
         return []
-    # allow: "a,b,c" or "a, b, c"
     return [p.strip() for p in x.split(",") if p.strip()]
 
 
 def _to_payload(obj: Any) -> Any:
-    # best-effort serializable
     if obj is None:
         return None
     if isinstance(obj, (str, int, float, bool)):
@@ -45,13 +51,13 @@ def _to_payload(obj: Any) -> Any:
     return str(obj)
 
 
-def _plot_observed_vs_cf(effect_df: pd.DataFrame, title: str = "Observed vs Counterfactual"):
+def _plot_observed_vs_cf(effect_df: pd.DataFrame, intervention_date: str, title: str = "Observed vs Counterfactual"):
     import matplotlib.pyplot as plt
 
     fig = plt.figure()
     plt.plot(effect_df["date"], effect_df["y"], label="observed")
     plt.plot(effect_df["date"], effect_df["y_cf"], label="counterfactual")
-    plt.axvline(effect_df["date"].iloc[effect_df["is_post"].to_numpy().argmax()], linestyle="--", label="intervention")
+    plt.axvline(intervention_date, linestyle="--", label="intervention")
     plt.title(title)
     plt.xlabel("date")
     plt.ylabel("y")
@@ -60,11 +66,12 @@ def _plot_observed_vs_cf(effect_df: pd.DataFrame, title: str = "Observed vs Coun
     return fig
 
 
-def _plot_point_effect(effect_df: pd.DataFrame, title: str = "Point effect"):
+def _plot_point_effect(effect_df: pd.DataFrame, intervention_date: str, title: str = "Point effect"):
     import matplotlib.pyplot as plt
 
     fig = plt.figure()
     plt.plot(effect_df["date"], effect_df["point_effect"])
+    plt.axvline(intervention_date, linestyle="--")
     plt.axhline(0.0, linestyle="--")
     plt.title(title)
     plt.xlabel("date")
@@ -73,11 +80,12 @@ def _plot_point_effect(effect_df: pd.DataFrame, title: str = "Point effect"):
     return fig
 
 
-def _plot_cum_effect(effect_df: pd.DataFrame, title: str = "Cumulative effect"):
+def _plot_cum_effect(effect_df: pd.DataFrame, intervention_date: str, title: str = "Cumulative effect"):
     import matplotlib.pyplot as plt
 
     fig = plt.figure()
     plt.plot(effect_df["date"], effect_df["cum_effect"])
+    plt.axvline(intervention_date, linestyle="--")
     plt.axhline(0.0, linestyle="--")
     plt.title(title)
     plt.xlabel("date")
@@ -86,17 +94,154 @@ def _plot_cum_effect(effect_df: pd.DataFrame, title: str = "Cumulative effect"):
     return fig
 
 
-def cmd_causal_impact(args) -> int:
-    """
-    MVP causal-impact CLI.
+def _accepted_params(cls) -> set[str]:
+    sig = inspect.signature(cls)
+    params = set(sig.parameters.keys())
+    params.discard("self")
+    return params
 
-    Requires internal causal module: tecore.causal.impact.run_impact
-    Expected interface (MVP):
-      res = run_impact(df, spec=..., cfg=...)
-      res.effect_df -> DataFrame with columns: date, y, y_cf, point_effect, cum_effect, is_post
-      res.summary -> dict-like (or dataclass) with key estimates
+
+def _build_dataspec(DataSpec, *, date_col: str, y_col: str, x_cols: list[str], intervention_dt: pd.Timestamp, df: pd.DataFrame):
     """
-    # Backward-compat note: no legacy out-json/out-md for causal (new command)
+    Construct DataSpec using introspection + a mapping of common parameter names.
+    This avoids breakage if internal tecore.causal.impact.DataSpec evolves.
+    """
+    p = _accepted_params(DataSpec)
+
+    pre_start = pd.to_datetime(df[date_col].min())
+    pre_end = pd.to_datetime(intervention_dt) - pd.Timedelta(days=1)
+    post_start = pd.to_datetime(intervention_dt)
+    post_end = pd.to_datetime(df[date_col].max())
+
+    kwargs: dict[str, Any] = {}
+
+    for name in ["date_col", "date", "ds", "time_col", "t_col"]:
+        if name in p:
+            kwargs[name] = date_col
+            break
+
+    for name in ["y_col", "y", "outcome", "target", "metric", "outcome_col"]:
+        if name in p:
+            kwargs[name] = y_col
+            break
+
+    for name in ["x", "x_cols", "covariates", "features", "controls", "regressors", "x_col_list"]:
+        if name in p:
+            kwargs[name] = x_cols
+            break
+
+    for name in ["intervention", "intervention_date", "t0", "post_start", "start_post", "cutoff", "treatment_start"]:
+        if name in p:
+            kwargs[name] = intervention_dt
+            break
+
+    if "pre_period" in p:
+        kwargs["pre_period"] = (pre_start, pre_end)
+    if "post_period" in p:
+        kwargs["post_period"] = (post_start, post_end)
+
+    if "pre_start" in p:
+        kwargs["pre_start"] = pre_start
+    if "pre_end" in p:
+        kwargs["pre_end"] = pre_end
+    if "post_start" in p and "post_start" not in kwargs:
+        kwargs["post_start"] = post_start
+    if "post_end" in p:
+        kwargs["post_end"] = post_end
+
+    return DataSpec(**kwargs)
+
+
+def _build_config(ImpactConfig, *, alpha: float, bootstrap_iters: int, n_placebos: int, seed: int):
+    """
+    Construct ImpactConfig using introspection + mapping for common names.
+    """
+    p = _accepted_params(ImpactConfig)
+    kwargs: dict[str, Any] = {}
+
+    for name in ["alpha", "significance", "p_alpha"]:
+        if name in p:
+            kwargs[name] = float(alpha)
+            break
+
+    for name in ["bootstrap_iters", "n_bootstrap", "num_bootstrap", "boot_iters", "n_boot_iters"]:
+        if name in p:
+            kwargs[name] = int(bootstrap_iters)
+            break
+
+    for name in ["n_placebos", "num_placebos", "placebo_iters", "placebos"]:
+        if name in p:
+            kwargs[name] = int(n_placebos)
+            break
+
+    for name in ["seed", "random_state", "rng_seed"]:
+        if name in p:
+            kwargs[name] = int(seed)
+            break
+
+    return ImpactConfig(**kwargs)
+
+
+def _normalize_effect_df(effect_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Accept a variety of column naming conventions from internal run_impact
+    and normalize to:
+      date, y, y_cf, point_effect, cum_effect, is_post
+    """
+    df = effect_df.copy()
+
+    if "date" not in df.columns:
+        for c in ["ds", "time", "t", "timestamp"]:
+            if c in df.columns:
+                df = df.rename(columns={c: "date"})
+                break
+
+    if "y" not in df.columns:
+        for c in ["observed", "actual", "y_obs"]:
+            if c in df.columns:
+                df = df.rename(columns={c: "y"})
+                break
+
+    if "y_cf" not in df.columns:
+        for c in ["counterfactual", "y0", "y_hat", "pred", "prediction", "y_pred"]:
+            if c in df.columns:
+                df = df.rename(columns={c: "y_cf"})
+                break
+
+    if "point_effect" not in df.columns:
+        for c in ["effect", "tau", "point_tau", "diff", "y_minus_ycf"]:
+            if c in df.columns:
+                df = df.rename(columns={c: "point_effect"})
+                break
+
+    if "cum_effect" not in df.columns:
+        for c in ["cumulative_effect", "cum_tau", "cumsum_effect", "cum_diff"]:
+            if c in df.columns:
+                df = df.rename(columns={c: "cum_effect"})
+                break
+
+    # is_post
+    if "is_post" not in df.columns:
+        for c in ["post", "in_post", "is_post_period"]:
+            if c in df.columns:
+                df = df.rename(columns={c: "is_post"})
+                break
+
+    if "is_post" not in df.columns and "date" in df.columns:
+        if "y_cf" in df.columns:
+            df["is_post"] = df["y_cf"].notna()
+        else:
+            df["is_post"] = False
+
+    needed = ["date", "y", "y_cf", "point_effect", "cum_effect", "is_post"]
+    miss = [c for c in needed if c not in df.columns]
+    if miss:
+        raise RuntimeError(f"effect_df missing required columns after normalization: {miss}")
+
+    return df
+
+
+def cmd_causal_impact(args) -> int:
     out_dir = prepare_out_dir(getattr(args, "out", None), command="causal-impact")
 
     df = pd.read_csv(args.input)
@@ -105,8 +250,7 @@ def cmd_causal_impact(args) -> int:
     y_col = str(getattr(args, "y", "y"))
     x_cols = _parse_x_list(getattr(args, "x", None))
 
-    required = [date_col, y_col]
-    missing = [c for c in required if c not in df.columns]
+    missing = [c for c in [date_col, y_col] if c not in df.columns]
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
 
@@ -125,21 +269,24 @@ def cmd_causal_impact(args) -> int:
         write_audit_bundle(out_dir, df=df, schema="timeseries_causal_impact", parent_command="causal-impact")
 
     try:
-        from tecore.causal.impact import ImpactConfig, DataSpec, run_impact  # type: ignore
+        from tecore.causal.impact import ImpactConfig, DataSpec, run_impact 
     except Exception as e:
         raise RuntimeError(
-            "Causal module not available. Expected tecore.causal.impact with ImpactConfig/DataSpec/run_impact. "
+            "Causal module import failed. Expected tecore.causal.impact with ImpactConfig/DataSpec/run_impact. "
             f"Import error: {e}"
         )
 
-    spec = DataSpec(
+    spec = _build_dataspec(
+        DataSpec,
         date_col=date_col,
-        y=y_col,
-        x=x_cols,
-        intervention=intervention_dt,
+        y_col=y_col,
+        x_cols=x_cols,
+        intervention_dt=intervention_dt,
+        df=df,
     )
 
-    cfg = ImpactConfig(
+    cfg = _build_config(
+        ImpactConfig,
         alpha=float(getattr(args, "alpha", 0.05)),
         bootstrap_iters=int(getattr(args, "bootstrap_iters", 200)),
         n_placebos=int(getattr(args, "n_placebos", 0)),
@@ -149,42 +296,35 @@ def cmd_causal_impact(args) -> int:
     res = run_impact(df, spec=spec, cfg=cfg)
 
     effect_df = getattr(res, "effect_df", None)
-    if effect_df is None or not isinstance(effect_df, pd.DataFrame):
-        raise RuntimeError("run_impact did not return `effect_df` as a pandas DataFrame.")
+    if effect_df is None:
+        # allow dict-like return
+        if isinstance(res, dict) and "effect_df" in res:
+            effect_df = res["effect_df"]
+    if not isinstance(effect_df, pd.DataFrame):
+        raise RuntimeError("run_impact did not return `effect_df` as a pandas DataFrame (field `effect_df`).")
 
-    ren = {}
-    if "ds" in effect_df.columns and "date" not in effect_df.columns:
-        ren["ds"] = "date"
-    effect_df = effect_df.rename(columns=ren)
-
-    for c in ["date", "y", "y_cf", "point_effect", "cum_effect", "is_post"]:
-        if c not in effect_df.columns:
-            raise RuntimeError(f"effect_df missing required column `{c}`.")
+    effect_df = _normalize_effect_df(effect_df)
 
     effect_export = effect_df.copy()
     effect_export["date"] = pd.to_datetime(effect_export["date"]).dt.strftime("%Y-%m-%d")
     effect_rel = write_table(out_dir, "effect_series", effect_export)
 
     artifacts: dict[str, Any] = {"report_md": "report.md", "plots": [], "tables": [effect_rel]}
-    fig1 = _plot_observed_vs_cf(effect_df)
+
+    intervention_str = pd.to_datetime(intervention_dt).strftime("%Y-%m-%d")
+
+    fig1 = _plot_observed_vs_cf(effect_df, intervention_str)
     artifacts["plots"].append(save_plot(out_dir, "observed_vs_counterfactual", fig=fig1))
-    fig2 = _plot_point_effect(effect_df)
+
+    fig2 = _plot_point_effect(effect_df, intervention_str)
     artifacts["plots"].append(save_plot(out_dir, "point_effect", fig=fig2))
-    fig3 = _plot_cum_effect(effect_df)
+
+    fig3 = _plot_cum_effect(effect_df, intervention_str)
     artifacts["plots"].append(save_plot(out_dir, "cumulative_effect", fig=fig3))
 
-    placebo_df = getattr(res, "placebo_df", None)
-    if isinstance(placebo_df, pd.DataFrame) and "placebo_p_value" in placebo_df.columns:
-        import matplotlib.pyplot as plt
-
-        fig = plt.figure()
-        plt.hist(placebo_df["placebo_p_value"].dropna().to_numpy(), bins=20, density=False)
-        plt.title("Placebo p-values")
-        plt.xlabel("p_value")
-        plt.ylabel("count")
-        artifacts["plots"].append(save_plot(out_dir, "placebo_hist", fig=fig))
-
     summary = getattr(res, "summary", None)
+    if summary is None and isinstance(res, dict):
+        summary = res.get("summary")
     summary_payload = _to_payload(summary)
 
     write_run_meta(out_dir, vars(args), extra={"command": "causal-impact"})
@@ -197,7 +337,7 @@ def cmd_causal_impact(args) -> int:
             "date_col": date_col,
             "y": y_col,
             "x": x_cols,
-            "intervention": str(intervention_dt.date()),
+            "intervention": intervention_str,
             "alpha": float(getattr(args, "alpha", 0.05)),
             "bootstrap_iters": int(getattr(args, "bootstrap_iters", 200)),
             "n_placebos": int(getattr(args, "n_placebos", 0)),
@@ -217,7 +357,7 @@ def cmd_causal_impact(args) -> int:
 - date_col: `{date_col}`
 - y: `{y_col}`
 - x: `{", ".join(x_cols) if x_cols else "(none)" }`
-- intervention: `{str(intervention_dt.date())}`
+- intervention: `{intervention_str}`
 - alpha: `{float(getattr(args, "alpha", 0.05))}`
 - bootstrap_iters: `{int(getattr(args, "bootstrap_iters", 200))}`
 - n_placebos: `{int(getattr(args, "n_placebos", 0))}`
@@ -229,7 +369,6 @@ def cmd_causal_impact(args) -> int:
 - plots/point_effect.png
 - plots/cumulative_effect.png
 """
-
     write_report_md(out_dir, report)
 
     return 0

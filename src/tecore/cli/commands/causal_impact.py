@@ -50,13 +50,19 @@ def _to_payload(obj: Any) -> Any:
     return str(obj)
 
 
-def _plot_observed_vs_cf(effect_df: pd.DataFrame, intervention_date: str, title: str = "Observed vs Counterfactual"):
+def _plot_observed_vs_cf(
+    effect_df: pd.DataFrame,
+    intervention_dt: pd.Timestamp,
+    title: str = "Observed vs Counterfactual",
+):
     import matplotlib.pyplot as plt
+
+    dt = pd.to_datetime(intervention_dt)
 
     fig = plt.figure()
     plt.plot(effect_df["date"], effect_df["y"], label="observed")
     plt.plot(effect_df["date"], effect_df["y_cf"], label="counterfactual")
-    plt.axvline(intervention_date, linestyle="--", label="intervention")
+    plt.axvline(dt, linestyle="--", label="intervention")
     plt.title(title)
     plt.xlabel("date")
     plt.ylabel("y")
@@ -65,12 +71,18 @@ def _plot_observed_vs_cf(effect_df: pd.DataFrame, intervention_date: str, title:
     return fig
 
 
-def _plot_point_effect(effect_df: pd.DataFrame, intervention_date: str, title: str = "Point effect"):
+def _plot_point_effect(
+    effect_df: pd.DataFrame,
+    intervention_dt: pd.Timestamp,
+    title: str = "Point effect",
+):
     import matplotlib.pyplot as plt
+
+    dt = pd.to_datetime(intervention_dt)
 
     fig = plt.figure()
     plt.plot(effect_df["date"], effect_df["point_effect"])
-    plt.axvline(intervention_date, linestyle="--")
+    plt.axvline(dt, linestyle="--")
     plt.axhline(0.0, linestyle="--")
     plt.title(title)
     plt.xlabel("date")
@@ -79,12 +91,18 @@ def _plot_point_effect(effect_df: pd.DataFrame, intervention_date: str, title: s
     return fig
 
 
-def _plot_cum_effect(effect_df: pd.DataFrame, intervention_date: str, title: str = "Cumulative effect"):
+def _plot_cum_effect(
+    effect_df: pd.DataFrame,
+    intervention_dt: pd.Timestamp,
+    title: str = "Cumulative effect",
+):
     import matplotlib.pyplot as plt
+
+    dt = pd.to_datetime(intervention_dt)
 
     fig = plt.figure()
     plt.plot(effect_df["date"], effect_df["cum_effect"])
-    plt.axvline(intervention_date, linestyle="--")
+    plt.axvline(dt, linestyle="--")
     plt.axhline(0.0, linestyle="--")
     plt.title(title)
     plt.xlabel("date")
@@ -356,11 +374,9 @@ def cmd_causal_impact(args) -> int:
     try:
         res = run_impact(df, **kwargs)
     except ValueError as e:
-        # standardized: input/config error => exit code 2
         _warn(str(e))
         return 2
 
-    # tecore.causal.impact.run_impact returns ImpactResult.effect_series (DataFrame)
     effect_df = getattr(res, "effect_series", None)
     if effect_df is None:
         effect_df = getattr(res, "effect_df", None)
@@ -383,13 +399,13 @@ def cmd_causal_impact(args) -> int:
 
     intervention_str = pd.to_datetime(intervention_dt).strftime("%Y-%m-%d")
 
-    fig1 = _plot_observed_vs_cf(effect_df, intervention_str)
+    fig1 = _plot_observed_vs_cf(effect_df, intervention_dt)
     artifacts["plots"].append(save_plot(out_dir, "observed_vs_counterfactual", fig=fig1))
-
-    fig2 = _plot_point_effect(effect_df, intervention_str)
+    
+    fig2 = _plot_point_effect(effect_df, intervention_dt)
     artifacts["plots"].append(save_plot(out_dir, "point_effect", fig=fig2))
-
-    fig3 = _plot_cum_effect(effect_df, intervention_str)
+    
+    fig3 = _plot_cum_effect(effect_df, intervention_dt)
     artifacts["plots"].append(save_plot(out_dir, "cumulative_effect", fig=fig3))
 
     summary_payload = _impact_summary_payload(res)

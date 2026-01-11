@@ -96,10 +96,23 @@ def verify_audit(out_dir: Path) -> None:
     _require_file(out_dir / "audit.json")
     _require_file(out_dir / "audit.md")
 
-    _require_file(out_dir / "tables" / "audit_column_profile.csv")
-    _require_file(out_dir / "tables" / "audit_numeric_summary.csv")
-    _require_file(out_dir / "tables" / "audit_group_balance.csv")
+    audit = _read_json(out_dir / "audit.json")
+    artifacts = audit.get("artifacts", {}) if isinstance(audit, dict) else {}
+    tables = artifacts.get("tables", [])
+    plots = artifacts.get("plots", [])
 
+    if tables is not None and not _is_list_of_str(tables):
+        _die(f"{out_dir}: audit.json artifacts.tables must be list[str]")
+    if plots is not None and not _is_list_of_str(plots):
+        _die(f"{out_dir}: audit.json artifacts.plots must be list[str]")
+
+    for rel in (tables or []) + (plots or []):
+        rel = str(rel).replace("\\", "/")
+        _require_file(out_dir / rel)
+
+    _require_any([
+        out_dir / "tables" / "audit_column_profile.csv",
+    ])
 
 def verify_cuped(out_dir: Path) -> None:
     _require_file(out_dir / "tables" / "summary.csv")

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -48,6 +47,7 @@ def _welch_mean_diff(a: np.ndarray, b: np.ndarray, alpha: float) -> dict[str, An
     m1, m2 = float(np.mean(a)), float(np.mean(b))
     v1, v2 = float(np.var(a, ddof=1)), float(np.var(b, ddof=1))
     se = np.sqrt(v1 / n1 + v2 / n2)
+
     if se == 0:
         t_stat, p = 0.0, 1.0
         ci_low, ci_high = (m2 - m1), (m2 - m1)
@@ -57,6 +57,7 @@ def _welch_mean_diff(a: np.ndarray, b: np.ndarray, alpha: float) -> dict[str, An
         df_num = (v1 / n1 + v2 / n2) ** 2
         df_den = (v1**2) / (n1**2 * (n1 - 1)) + (v2**2) / (n2**2 * (n2 - 1))
         df = float(df_num / df_den) if df_den > 0 else float(n1 + n2 - 2)
+
         diff = (m2 - m1)
         t_stat = float(diff / se)
         p = float(2 * stats.t.sf(np.abs(t_stat), df=df))
@@ -127,6 +128,7 @@ def _plot_scatter(df: pd.DataFrame, group_col: str, control: str, test: str, x: 
     plt.legend()
     return fig
 
+
 def cmd_cuped(args) -> int:
     # Backward-compat: if --out is set, ignore --out-json/--out-md
     if getattr(args, "out", None):
@@ -170,19 +172,25 @@ def cmd_cuped(args) -> int:
     vr = (var_adj / var_raw) if (var_raw > 0) else None
 
     warnings: list[str] = []
-    # Sanity: correlation
     corr = float(pd.Series(df[args.y]).corr(pd.Series(df[args.x])))
     if np.isfinite(corr) and abs(corr) < 0.05:
         warnings.append("Low corr(x,y). CUPED may give little variance reduction on this dataset.")
 
-    out_dir = prepare_out_dir(getattr(args, "out", None), command="cuped")
+    warnings_block = ("- " + "\n- ".join(warnings)) if warnings else "(none)"
 
-    artifacts = {"report_md": None, "plots": [], "tables": []}
+    out_dir = prepare_out_dir(getattr(args, "out", None), command="cuped")
+    artifacts: dict[str, Any] = {"report_md": None, "plots": [], "tables": []}
 
     summary = pd.DataFrame(
         [
-            {"method": "base", **{k: base[k] for k in ["n_control", "n_test", "mean_control", "mean_test", "diff", "p_value", "ci_low", "ci_high"]}},
-            {"method": "cuped", **{k: cuped[k] for k in ["n_control", "n_test", "mean_control", "mean_test", "diff", "p_value", "ci_low", "ci_high"]}},
+            {
+                "method": "base",
+                **{k: base[k] for k in ["n_control", "n_test", "mean_control", "mean_test", "diff", "p_value", "ci_low", "ci_high"]},
+            },
+            {
+                "method": "cuped",
+                **{k: cuped[k] for k in ["n_control", "n_test", "mean_control", "mean_test", "diff", "p_value", "ci_low", "ci_high"]},
+            },
         ]
     )
 
@@ -211,7 +219,7 @@ def cmd_cuped(args) -> int:
 - var_ratio (adj/raw): {vr if vr is not None else "NA"}
 
 ## Warnings
-{("- " + "\n- ".join(warnings)) if warnings else "(none)"}
+{warnings_block}
 """
 
     payload: dict[str, Any] = {
@@ -227,15 +235,8 @@ def cmd_cuped(args) -> int:
             "transform": args.transform,
             "winsor_q": float(args.winsor_q),
         },
-        "estimates": {
-            "base": base,
-            "cuped": cuped,
-        },
-        "diagnostics": {
-            "theta": theta,
-            "corr_xy": corr,
-            "var_ratio_adj_over_raw": vr,
-        },
+        "estimates": {"base": base, "cuped": cuped},
+        "diagnostics": {"theta": theta, "corr_xy": corr, "var_ratio_adj_over_raw": vr},
         "warnings": warnings,
         "artifacts": artifacts,
     }
@@ -244,11 +245,14 @@ def cmd_cuped(args) -> int:
         write_run_meta(out_dir, vars(args), extra={"command": "cuped"})
         artifacts["tables"].append(write_table(out_dir, "summary", summary))
 
-        # Plots
-        fig1 = _plot_hist_by_group(df, args.group_col, args.control, args.test, args.y, title="Post metric distribution by group")
+        fig1 = _plot_hist_by_group(
+            df, args.group_col, args.control, args.test, args.y, title="Post metric distribution by group"
+        )
         artifacts["plots"].append(save_plot(out_dir, "y_post_by_group", fig=fig1))
 
-        fig2 = _plot_scatter(df, args.group_col, args.control, args.test, x=args.x, y=args.y, title="Pre covariate vs post metric (sanity for CUPED)")
+        fig2 = _plot_scatter(
+            df, args.group_col, args.control, args.test, x=args.x, y=args.y, title="Pre covariate vs post metric (sanity for CUPED)"
+        )
         artifacts["plots"].append(save_plot(out_dir, "x_vs_y_scatter", fig=fig2))
 
         artifacts["report_md"] = "report.md"
@@ -257,18 +261,15 @@ def cmd_cuped(args) -> int:
         write_report_md(out_dir, report)
         return 0
 
-    # Backward-compat (no --out): old behavior
     if getattr(args, "out_json", None):
-        Path(args.out_json).parent.mkdir(parents=True, exist_ok=True)
-        Path(args.out_json).write_text(pd.json.dumps(payload, ensure_ascii=False, indent=2) if False else "", encoding="utf-8")  # placeholder safeguard
+        import json
 
-    # Simpler & correct:
-    if getattr(args, "out_json", None):
         Path(args.out_json).parent.mkdir(parents=True, exist_ok=True)
         Path(args.out_json).write_text(
-            __import__("json").dumps(payload, ensure_ascii=False, indent=2) + "\n",
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
+
     if getattr(args, "out_md", None):
         Path(args.out_md).parent.mkdir(parents=True, exist_ok=True)
         Path(args.out_md).write_text(report, encoding="utf-8")

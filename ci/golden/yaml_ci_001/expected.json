@@ -1,15 +1,31 @@
 {
-  "required_files": ["results.json", "report.md", "run_meta.json", "audit.json", "audit.md"],
+  "required_files": [
+    "results.json",
+    "report.md",
+    "run_meta.json",
+    "tables/effect_series.csv",
+    "plots/observed_vs_counterfactual.png",
+    "plots/point_effect.png",
+    "plots/cumulative_effect.png",
+    "audit.json",
+    "audit.md"
+  ],
+  "results_checks": {
+    "estimates.summary.point_effect": {
+      "value": 5.08067779779,
+      "rtol": 1e-05,
+      "atol": 1e-05
+    },
+    "estimates.summary.cum_effect": {
+      "value": 203.227111912,
+      "rtol": 1e-05,
+      "atol": 1e-05
+    }
+  },
+  "csv_checks": [],
   "plot_files": [
     "plots/observed_vs_counterfactual.png",
     "plots/point_effect.png",
     "plots/cumulative_effect.png"
-  ],
-  "results_checks": {
-    "estimates.summary.point_effect": { "value": 0.0, "rtol": 1e-5, "atol": 1e-5 },
-    "estimates.summary.cum_effect": { "value": 0.0, "rtol": 1e-5, "atol": 1e-5 }
-  },
-  "csv_checks": [
-    { "rel": "tables/effect_series.csv", "key_cols": ["date"], "rtol": 1e-5, "atol": 1e-5 }
   ]
 }

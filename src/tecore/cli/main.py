@@ -32,6 +32,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--winsor-q", type=float, default=0.99)
     sp.add_argument("--out-json", default=None)
     sp.add_argument("--out-md", default=None)
+    sp.add_argument("--out", default=None, help="Output directory for report bundle (e.g. results/run_001).")
+    sp.add_argument("--audit", action="store_true", help="Run audit/guardrails and include in bundle (MVP: ignored for now).")
     sp.set_defaults(func=cmd_cuped)
 
     sp = sub.add_parser("cuped-ratio", help="Base vs CUPED for a ratio metric via linearization.")
@@ -46,6 +48,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--alpha", type=float, default=0.05)
     sp.add_argument("--out-json", default=None)
     sp.add_argument("--out-md", default=None)
+    sp.add_argument("--out", default=None, help="Output directory for report bundle (e.g. results/run_001).")
+    sp.add_argument("--audit", action="store_true", help="Run audit/guardrails and include in bundle (MVP: ignored for now).")
     sp.set_defaults(func=cmd_cuped_ratio)
 
     return p

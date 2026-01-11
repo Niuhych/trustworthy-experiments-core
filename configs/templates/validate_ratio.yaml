@@ -1,0 +1,6 @@
+command: validate
+input: examples/example_ratio.csv
+out: out/template_validate_ratio
+
+params:
+  schema: b2c_ratio

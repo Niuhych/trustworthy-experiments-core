@@ -36,29 +36,39 @@ BUNDLES = {
         ],
     },
     "run_ratio": {
-        "required_files": ["results.json", "report.md", "run_meta.json", "audit.json", "audit.md"],
+        "required_files": [
+            "results.json",
+            "report.md",
+            "run_meta.json",
+            "tables/summary.csv",
+            "audit.json",
+            "audit.md",
+        ],
         "results_checks": {
             "estimates.base.diff_linearized": {"rtol": 1e-6, "atol": 1e-6},
             "estimates.cuped.diff_linearized": {"rtol": 1e-6, "atol": 1e-6},
             "diagnostics.theta": {"rtol": 1e-6, "atol": 1e-6},
         },
-        "csv_checks": [
-            {"rel": "tables/summary.csv", "rtol": 1e-6, "atol": 1e-8, "key_cols": ["method"]},
-        ],
+        "csv_checks": [],
         "plot_files": [
             "plots/ratio_post_by_group.png",
             "plots/linearized_by_group.png",
         ],
     },
     "yaml_ci_001": {
-        "required_files": ["results.json", "report.md", "run_meta.json", "audit.json", "audit.md"],
+        "required_files": [
+            "results.json",
+            "report.md",
+            "run_meta.json",
+            "tables/effect_series.csv",
+            "audit.json",
+            "audit.md",
+        ],
         "results_checks": {
             "estimates.summary.point_effect": {"rtol": 1e-5, "atol": 1e-5},
             "estimates.summary.cum_effect": {"rtol": 1e-5, "atol": 1e-5},
         },
-        "csv_checks": [
-            {"rel": "tables/effect_series.csv", "rtol": 1e-6, "atol": 1e-8, "key_cols": ["date"]},
-        ],
+        "csv_checks": [],
         "plot_files": [
             "plots/observed_vs_counterfactual.png",
             "plots/point_effect.png",

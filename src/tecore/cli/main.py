@@ -7,6 +7,7 @@ from tecore.cli.commands.cuped import cmd_cuped
 from tecore.cli.commands.cuped_ratio import cmd_cuped_ratio
 from tecore.cli.commands.validate import cmd_validate
 from tecore.cli.commands.version import cmd_version
+from tecore.cli.commands.run_config import cmd_run_config
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -75,6 +76,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run audit/guardrails and include in bundle (MVP: ignored for now).",
     )
     sp.set_defaults(func=cmd_cuped_ratio)
+
+    sp = sub.add_parser("run", help="Run a command from a YAML config.")
+    sp.add_argument("--config", required=True, help="Path to YAML config file.")
+    sp.set_defaults(func=cmd_run_config)
 
     return p
 

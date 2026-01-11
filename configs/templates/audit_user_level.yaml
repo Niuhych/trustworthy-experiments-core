@@ -1,0 +1,6 @@
+command: audit
+input: examples/example_user_level.csv
+out: out/template_audit_user_level
+
+params:
+  schema: b2c_user_level

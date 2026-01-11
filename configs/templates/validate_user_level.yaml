@@ -1,0 +1,6 @@
+command: validate
+input: examples/example_user_level.csv
+out: out/template_validate_user_level
+
+params:
+  schema: b2c_user_level

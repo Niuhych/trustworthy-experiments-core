@@ -314,7 +314,11 @@ def cmd_causal_impact(args) -> int:
     elif "config" in call_params:
         kwargs["config"] = cfg
     
-    res = run_impact(df, **kwargs)
+    try:
+        res = run_impact(df, **kwargs)
+    except ValueError as e:
+        _warn(str(e))
+        return 2
 
     effect_df = getattr(res, "effect_df", None)
     if effect_df is None:

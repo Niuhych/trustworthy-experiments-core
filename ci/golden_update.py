@@ -49,6 +49,7 @@ BUNDLES = {
             "estimates.cuped.diff_linearized": {"rtol": 1e-6, "atol": 1e-6},
             "diagnostics.theta": {"rtol": 1e-6, "atol": 1e-6},
         },
+        # Формат summary.csv уже менялся → не фиксируем CSV-гольденом, держим контракт на results.json.
         "csv_checks": [],
         "plot_files": [
             "plots/ratio_post_by_group.png",
@@ -68,6 +69,7 @@ BUNDLES = {
             "estimates.summary.point_effect": {"rtol": 1e-5, "atol": 1e-5},
             "estimates.summary.cum_effect": {"rtol": 1e-5, "atol": 1e-5},
         },
+        # effect_series.csv потенциально “дрожит” → existence-only + проверяем стабильные summary числа.
         "csv_checks": [],
         "plot_files": [
             "plots/observed_vs_counterfactual.png",

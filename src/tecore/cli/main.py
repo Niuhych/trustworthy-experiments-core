@@ -6,6 +6,7 @@ from tecore.cli.commands.version import cmd_version
 from tecore.cli.commands.validate import cmd_validate
 from tecore.cli.commands.cuped import cmd_cuped
 from tecore.cli.commands.cuped_ratio import cmd_cuped_ratio
+from tecore.cli.commands.audit import cmd_audit
 
 
 def build_parser() -> argparse.ArgumentParser:

@@ -112,6 +112,13 @@ jobs:
           echo "=== dirs under out/run_ratio ==="
           find out/run_ratio -maxdepth 2 -type d -print || true
 
+      - name: Move golden templates under out/templates
+        run: |
+          set -e
+          mkdir -p out/templates
+          mv -f out/ci_causal.yaml out/templates/ || true
+          mv -f out/example_ts_long.csv out/templates/ || true
+
       - name: Verify bundles
         run: |
           python ci/verify_bundle.py \

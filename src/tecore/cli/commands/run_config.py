@@ -135,6 +135,7 @@ def cmd_run_config(args) -> int:
             "bootstrap_iters": int(params.get("bootstrap_iters", 200)),
             "n_placebos": int(params.get("n_placebos", 0)),
             "seed": int(params.get("seed", 42)),
+            "pre_period_min_points": int(params.get("pre_period_min_points", 30)),
             "audit": audit_flag,
         }
         if not merged["y"] or not merged["intervention"]:

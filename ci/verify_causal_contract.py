@@ -88,11 +88,25 @@ def main() -> int:
     if is_post_bool.all() or (~is_post_bool).all():
         _die("effect_series.csv has no pre or no post rows (is_post is all one value)")
 
-    for col in ["y", "y_cf", "point_effect", "cum_effect"]:
+    for col in ["y", "y_cf", "point_effect"]:
         vals = pd.to_numeric(df[col], errors="coerce")
         if vals.isna().any():
             bad = int(vals.isna().sum())
             _die(f"effect_series.csv column {col} has non-numeric values: {bad} NaN after coercion")
+
+    cum = pd.to_numeric(df["cum_effect"], errors="coerce")
+
+    post_idx = is_post_bool.values
+    if post_idx.sum() == 0:
+        _die("effect_series.csv has no post rows (cannot validate cum_effect)")
+
+    cum_post = cum[post_idx]
+    if cum_post.isna().any():
+        bad = int(cum_post.isna().sum())
+        _die(f"effect_series.csv column cum_effect has non-numeric values in post rows: {bad} NaN after coercion")
+
+    if len(cum_post) < 2:
+        _die(f"effect_series.csv post period too short for cum_effect validation: n_post={len(cum_post)}")
 
     results = json.loads((bundle / "results.json").read_text(encoding="utf-8"))
 

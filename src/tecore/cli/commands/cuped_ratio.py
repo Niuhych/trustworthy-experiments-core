@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from tecore.cli.audit_api import write_audit_bundle
 from tecore.cli.bundle import (
     prepare_out_dir,
     save_plot,
@@ -122,6 +123,16 @@ def cmd_cuped_ratio(args) -> int:
     missing = sorted([c for c in required if c not in df.columns])
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
+
+    # Compute out_dir ONCE (critical for future default-out behavior)
+    out_dir = prepare_out_dir(getattr(args, "out", None), command="cuped-ratio")
+
+    # Optional audit on RAW input before transformations
+    if getattr(args, "audit", False):
+        if out_dir is not None:
+            write_audit_bundle(out_dir, df=df, schema="b2c_ratio", parent_command="cuped-ratio")
+        else:
+            _warn("`--audit` is set but `--out` is not provided; skipping audit (nowhere to write).")
 
     df = df.copy()
 
@@ -276,7 +287,6 @@ def cmd_cuped_ratio(args) -> int:
         "artifacts": artifacts,
     }
 
-    out_dir = prepare_out_dir(getattr(args, "out", None), command="cuped-ratio")
     if out_dir is not None:
         write_run_meta(out_dir, vars(args), extra={"command": "cuped-ratio"})
         artifacts["tables"].append(write_table(out_dir, "summary", summary))
@@ -297,15 +307,12 @@ def cmd_cuped_ratio(args) -> int:
         write_report_md(out_dir, report)
         return 0
 
-    # Backward-compat (no --out): old behavior
+    # Legacy outputs (no --out)
     if getattr(args, "out_json", None):
         import json
 
         Path(args.out_json).parent.mkdir(parents=True, exist_ok=True)
-        Path(args.out_json).write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        Path(args.out_json).write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     if getattr(args, "out_md", None):
         Path(args.out_md).parent.mkdir(parents=True, exist_ok=True)

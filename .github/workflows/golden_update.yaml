@@ -1,0 +1,120 @@
+name: golden-update
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package
+        run: |
+          python -m pip install -U pip
+          python -m pip install -e .
+
+      - name: Generate bundles (same as CI smoke)
+        run: |
+          set -e
+
+          tecore --help
+          tecore version
+
+          tecore validate --input examples/example_user_level.csv --schema b2c_user_level --out out/validate_user_level
+          tecore validate --input examples/example_ratio.csv --schema b2c_ratio --out out/validate_ratio
+
+          tecore audit --input examples/example_user_level.csv --schema b2c_user_level --out out/audit_user_level
+          tecore audit --input examples/example_ratio.csv --schema b2c_ratio --out out/audit_ratio
+
+          tecore cuped \
+            --input examples/example_user_level.csv \
+            --y revenue --x revenue_pre \
+            --out out/run_mean \
+            --audit
+
+          tecore cuped-ratio \
+            --input examples/example_ratio.csv \
+            --num revenue --den sessions \
+            --num-pre revenue_pre --den-pre sessions_pre \
+            --out out/run_ratio \
+            --audit
+
+          tecore run --config configs/templates/cuped_example.yaml
+          tecore run --config configs/templates/cuped_ratio_example.yaml
+
+          python - << 'PY'
+          import numpy as np
+          import pandas as pd
+          from pathlib import Path
+
+          rng = np.random.default_rng(42)
+
+          n = 90
+          dates = pd.date_range("2025-01-01", periods=n, freq="D")
+
+          x1 = rng.normal(0, 1, n).cumsum()
+          x2 = rng.normal(0, 1, n).cumsum()
+
+          y = 100 + 0.5 * x1 + 0.2 * x2 + rng.normal(0, 1.0, n)
+
+          intervention_date = pd.Timestamp("2025-02-20")  # pre = 50 days
+          post_mask = dates >= intervention_date
+          y[post_mask] += 5.0
+
+          df = pd.DataFrame({
+              "date": dates.strftime("%Y-%m-%d"),
+              "y": y,
+              "x1": x1,
+              "x2": x2,
+          })
+
+          Path("out").mkdir(parents=True, exist_ok=True)
+          df.to_csv("out/example_ts_long.csv", index=False)
+
+          cfg = f"""
+          command: causal-impact
+          input: out/example_ts_long.csv
+          out: out/yaml_ci_001
+          params:
+            schema: timeseries_causal_impact
+            date_col: date
+            y: y
+            x: x1, x2
+            intervention: "{intervention_date.strftime('%Y-%m-%d')}"
+            bootstrap_iters: 50
+            n_placebos: 0
+            seed: 42
+          audit: true
+          """.strip() + "\n"
+
+          Path("out/ci_causal.yaml").write_text(cfg, encoding="utf-8")
+          print("Wrote out/example_ts_long.csv and out/ci_causal.yaml")
+          PY
+
+          tecore run --config out/ci_causal.yaml
+
+      - name: Update golden snapshots from out/
+        run: |
+          python ci/golden_update.py --golden ci/golden --out out
+
+      - name: Create PR with updated golden
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: golden/update
+          delete-branch: true
+          title: "Update golden runs"
+          commit-message: "ci(golden): update golden snapshots"
+          body: |
+            Auto-generated golden updates from workflow_dispatch.
+            Bundles: run_mean, run_ratio, yaml_ci_001

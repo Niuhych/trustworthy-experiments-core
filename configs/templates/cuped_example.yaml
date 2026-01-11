@@ -1,0 +1,15 @@
+command: cuped
+input: examples/example_user_level.csv
+out: out/yaml_run_mean
+
+params:
+  group_col: group
+  control: control
+  test: test
+  y: revenue
+  x: revenue_pre
+  alpha: 0.05
+  transform: raw
+  winsor_q: 0.99
+
+audit: true

@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from typing import Any
+from tecore.cli.audit_api import write_audit_bundle
 
 import numpy as np
 import pandas as pd

@@ -173,33 +173,23 @@ def cmd_audit(args) -> int:
     # ---- Write bundle artifacts ----
     write_run_meta(out_dir, vars(args), extra={"command": "audit"})
 
-    artifacts = {"tables": [], "plots": []}  # MVP: no plots yet
+    audit_payload = write_audit_bundle(out_dir, df=df, schema=schema, parent_command="audit")
 
-    artifacts["tables"].append(write_table(out_dir, "column_profile", col_profile))
-    if numeric_summary is not None:
-        artifacts["tables"].append(write_table(out_dir, "numeric_summary", numeric_summary))
-    if group_balance is not None:
-        artifacts["tables"].append(write_table(out_dir, "group_balance", group_balance))
-
-    audit_payload: dict[str, Any] = {
+    # For bundle consistency with other commands: also create results.json + report.md
+    results_payload: dict[str, Any] = {
         "command": "audit",
-        "inputs": {
-            "input": args.input,
-            "schema": schema,
+        "inputs": {"input": args.input, "schema": schema},
+        "estimates": {},
+        "diagnostics": {"shape": {"n_rows": int(df.shape[0]), "n_cols": int(df.shape[1])}},
+        "warnings": audit_payload.get("warnings", []),
+        "artifacts": {
+            "report_md": "report.md",
+            "plots": [],
+            "tables": audit_payload.get("artifacts", {}).get("tables", []),
         },
-        "shape": {"n_rows": int(df.shape[0]), "n_cols": int(df.shape[1])},
-        "detected": {
-            "group_col": group_col,
-            "user_id_col": user_id_col,
-            "denominator_like_cols": den_cols,
-        },
-        "checks": {
-            "zero_denominator_share": zero_den,
-        },
-        "warnings": warnings,
-        "errors": errors,
-        "artifacts": artifacts,
     }
+    write_results_json(out_dir, results_payload)
+    write_report_md(out_dir, Path(out_dir / "audit.md").read_text(encoding="utf-8"))
 
     # audit.json + audit.md
     write_audit_json(out_dir, audit_payload)

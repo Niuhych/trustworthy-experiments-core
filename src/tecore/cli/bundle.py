@@ -72,6 +72,8 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def write_run_meta(out_dir: Path, args: Any, extra: dict[str, Any] | None = None) -> None:
+    args_dict = dict(args_dict)
+    args_dict.pop("func", None)
     pkg_ver = None
     if pkg_version is not None:
         try:

@@ -23,47 +23,10 @@ jobs:
           python -m pip install -U pip
           python -m pip install -e .
 
-      - name: CLI smoke
+      - name: Build out/ bundles
         run: |
           set -e
-
-          tecore --help
-          tecore version
-
-          tecore validate --input examples/example_user_level.csv --schema b2c_user_level --out out/validate_user_level
-          tecore validate --input examples/example_ratio.csv --schema b2c_ratio --out out/validate_ratio
-
-          tecore audit --input examples/example_user_level.csv --schema b2c_user_level --out out/audit_user_level
-          tecore audit --input examples/example_ratio.csv --schema b2c_ratio --out out/audit_ratio
-
-          tecore cuped \
-            --input examples/example_user_level.csv \
-            --y revenue --x revenue_pre \
-            --out out/run_mean \
-            --audit
-
-          tecore cuped-ratio \
-            --input examples/example_ratio.csv \
-            --num revenue --den sessions \
-            --num-pre revenue_pre --den-pre sessions_pre \
-            --out out/run_ratio \
-            --audit
-
-          tecore run --config configs/templates/cuped_example.yaml
-          tecore run --config configs/templates/cuped_ratio_example.yaml
-          tecore run --config configs/templates/causal_impact_example.yaml
-
-          echo "=== out tree (files) ==="
-          find out -type f -maxdepth 4 -print | sort || true
-
-          echo "=== dirs under out/run_mean ==="
-          find out/run_mean -maxdepth 2 -type d -print || true
-
-          echo "=== dirs under out/run_ratio ==="
-          find out/run_ratio -maxdepth 2 -type d -print || true
-
-          echo "=== dirs under out/yaml_ci_001 ==="
-          find out/yaml_ci_001 -maxdepth 2 -type d -print || true
+          python scripts/build_out.py --clean --print-tree
 
       - name: Verify bundles
         run: |

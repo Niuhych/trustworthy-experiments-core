@@ -93,7 +93,8 @@ jobs:
             out/template_audit_user_level \
             out/template_audit_ratio \
             out/yaml_run_mean \
-            out/yaml_run_ratio
+            out/yaml_run_ratio \
+            out/yaml_ci_001
 
       - name: Upload reports
         if: always()

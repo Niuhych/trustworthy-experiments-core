@@ -1,12 +1,43 @@
 {
-  "required_files": ["results.json", "report.md", "run_meta.json"],
-  "plot_files": ["plots/ratio_post_by_group.png", "plots/linearized_by_group.png"],
+  "required_files": [
+    "results.json",
+    "report.md",
+    "run_meta.json",
+    "tables/summary.csv",
+    "plots/ratio_post_by_group.png",
+    "plots/linearized_by_group.png",
+    "audit.json",
+    "audit.md"
+  ],
   "results_checks": {
-    "estimates.base.diff_linearized": { "value": 0.0, "rtol": 1e-6, "atol": 1e-6 },
-    "estimates.cuped.diff_linearized": { "value": 0.0, "rtol": 1e-6, "atol": 1e-6 },
-    "diagnostics.theta": { "value": 0.0, "rtol": 1e-6, "atol": 1e-6 }
+    "estimates.base.diff_linearized": {
+      "value": 0.5047619047619047,
+      "rtol": 1e-06,
+      "atol": 1e-06
+    },
+    "estimates.cuped.diff_linearized": {
+      "value": 0.06481700572843291,
+      "rtol": 1e-06,
+      "atol": 1e-06
+    },
+    "diagnostics.theta": {
+      "value": 1.2785898628181922,
+      "rtol": 1e-06,
+      "atol": 1e-06
+    }
   },
   "csv_checks": [
-    { "rel": "tables/summary.csv", "key_cols": ["method"], "rtol": 1e-6, "atol": 1e-6 }
+    {
+      "rel": "tables/summary.csv",
+      "rtol": 1e-06,
+      "atol": 1e-08,
+      "key_cols": [
+        "method"
+      ]
+    }
+  ],
+  "plot_files": [
+    "plots/ratio_post_by_group.png",
+    "plots/linearized_by_group.png"
   ]
 }

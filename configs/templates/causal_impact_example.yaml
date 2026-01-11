@@ -1,0 +1,16 @@
+command: causal-impact
+input: examples/example_ts.csv
+out: out/yaml_ci_001
+
+params:
+  schema: timeseries_causal_impact
+  date_col: date
+  y: y
+  x: sessions,active_users
+  intervention: "2025-01-11"
+  alpha: 0.05
+  bootstrap_iters: 200
+  n_placebos: 0
+  seed: 42
+
+audit: true

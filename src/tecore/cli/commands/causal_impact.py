@@ -95,7 +95,7 @@ def _plot_cum_effect(effect_df: pd.DataFrame, intervention_date: str, title: str
 
 
 def _accepted_params(cls) -> set[str]:
-    sig = inspect.signature(cls)
+    sig = inspect.signature(cls.__init__)
     params = set(sig.parameters.keys())
     params.discard("self")
     return params
@@ -152,12 +152,17 @@ def _build_dataspec(DataSpec, *, date_col: str, y_col: str, x_cols: list[str], i
     return DataSpec(**kwargs)
 
 
-def _build_config(ImpactConfig, *, alpha: float, bootstrap_iters: int, n_placebos: int, seed: int):
+def _build_config(ImpactConfig, *, intervention_dt: pd.Timestamp, alpha: float, bootstrap_iters: int, n_placebos: int, seed: int,):
     """
     Construct ImpactConfig using introspection + mapping for common names.
     """
     p = _accepted_params(ImpactConfig)
     kwargs: dict[str, Any] = {}
+
+    for name in ["intervention_date", "intervention", "t0", "cutoff", "treatment_start", "post_start"]:
+        if name in p:
+            kwargs[name] = intervention_dt
+            break
 
     for name in ["alpha", "significance", "p_alpha"]:
         if name in p:
@@ -220,7 +225,6 @@ def _normalize_effect_df(effect_df: pd.DataFrame) -> pd.DataFrame:
                 df = df.rename(columns={c: "cum_effect"})
                 break
 
-    # is_post
     if "is_post" not in df.columns:
         for c in ["post", "in_post", "is_post_period"]:
             if c in df.columns:
@@ -287,13 +291,30 @@ def cmd_causal_impact(args) -> int:
 
     cfg = _build_config(
         ImpactConfig,
+        intervention_dt=intervention_dt,
         alpha=float(getattr(args, "alpha", 0.05)),
         bootstrap_iters=int(getattr(args, "bootstrap_iters", 200)),
         n_placebos=int(getattr(args, "n_placebos", 0)),
         seed=int(getattr(args, "seed", 42)),
     )
 
-    res = run_impact(df, spec=spec, cfg=cfg)
+    import inspect as _inspect
+    
+    call_sig = _inspect.signature(run_impact)
+    call_params = set(call_sig.parameters.keys())
+    
+    kwargs = {}
+    if "spec" in call_params:
+        kwargs["spec"] = spec
+    elif "data_spec" in call_params:
+        kwargs["data_spec"] = spec
+    
+    if "cfg" in call_params:
+        kwargs["cfg"] = cfg
+    elif "config" in call_params:
+        kwargs["config"] = cfg
+    
+    res = run_impact(df, **kwargs)
 
     effect_df = getattr(res, "effect_df", None)
     if effect_df is None:

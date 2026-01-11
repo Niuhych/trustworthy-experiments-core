@@ -129,6 +129,13 @@ jobs:
             out/yaml_run_ratio \
             out/yaml_ci_001
 
+      - name: Golden runs
+        run: |
+          python ci/golden_verify.py --golden ci/golden \
+            out/run_mean \
+            out/run_ratio \
+            out/yaml_ci_001
+
       - name: Upload reports
         uses: actions/upload-artifact@v4
         with:

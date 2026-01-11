@@ -8,10 +8,10 @@ from typing import Any
 import yaml
 
 from tecore.cli.commands.audit import cmd_audit
+from tecore.cli.commands.causal_impact import cmd_causal_impact
 from tecore.cli.commands.cuped import cmd_cuped
 from tecore.cli.commands.cuped_ratio import cmd_cuped_ratio
 from tecore.cli.commands.validate import cmd_validate
-from tecore.cli.commands.causal_impact import cmd_causal_impact
 
 
 def _fail(msg: str) -> int:
@@ -20,7 +20,6 @@ def _fail(msg: str) -> int:
 
 
 def _as_args(d: dict[str, Any]) -> SimpleNamespace:
-    # cmd_* functions expect attribute access (args.foo)
     return SimpleNamespace(**d)
 
 
@@ -51,7 +50,6 @@ def cmd_run_config(args) -> int:
 
     audit_flag = bool(cfg.get("audit", False))
 
-    # Build args-like dict for underlying command
     base_args: dict[str, Any] = {"out": out_dir}
 
     if command == "cuped":
@@ -69,7 +67,6 @@ def cmd_run_config(args) -> int:
             "transform": params.get("transform", "raw"),
             "winsor_q": float(params.get("winsor_q", 0.99)),
             "audit": audit_flag,
-            # legacy (explicitly None so handlers don't break)
             "out_json": None,
             "out_md": None,
         }
@@ -123,7 +120,7 @@ def cmd_run_config(args) -> int:
             return _fail("audit requires `out` (bundle dir)")
         return int(cmd_audit(_as_args(merged)))
 
-        if command in {"causal-impact", "causal_impact"}:
+    if command in {"causal-impact", "causal_impact"}:
         if input_path is None:
             return _fail("causal-impact requires `input`")
         merged = {

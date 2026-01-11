@@ -82,6 +82,21 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--config", required=True, help="Path to YAML config file.")
     sp.set_defaults(func=cmd_run_config)
 
+    sp = sub.add_parser("causal-impact", help="Causal impact analysis for time series (bundle output).")
+    sp.add_argument("--input", required=True, help="Path to CSV file.")
+    sp.add_argument("--schema", default="timeseries_causal_impact", help="timeseries_causal_impact")
+    sp.add_argument("--date-col", dest="date_col", default="date")
+    sp.add_argument("--y", required=True, help="Outcome column.")
+    sp.add_argument("--x", default="", help="Comma-separated covariates (e.g. sessions,active_users).")
+    sp.add_argument("--intervention", required=True, help="Intervention date YYYY-MM-DD.")
+    sp.add_argument("--alpha", type=float, default=0.05)
+    sp.add_argument("--bootstrap-iters", dest="bootstrap_iters", type=int, default=200)
+    sp.add_argument("--n-placebos", dest="n_placebos", type=int, default=0)
+    sp.add_argument("--seed", type=int, default=42)
+    sp.add_argument("--out", default=None, help="Output directory for report bundle.")
+    sp.add_argument("--audit", action="store_true", help="Run audit/guardrails and include in bundle.")
+    sp.set_defaults(func=cmd_causal_impact)
+
     return p
 
 

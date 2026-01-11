@@ -1,0 +1,15 @@
+{
+  "required_files": ["results.json", "report.md", "run_meta.json", "audit.json", "audit.md"],
+  "plot_files": [
+    "plots/observed_vs_counterfactual.png",
+    "plots/point_effect.png",
+    "plots/cumulative_effect.png"
+  ],
+  "results_checks": {
+    "estimates.summary.point_effect": { "value": 0.0, "rtol": 1e-5, "atol": 1e-5 },
+    "estimates.summary.cum_effect": { "value": 0.0, "rtol": 1e-5, "atol": 1e-5 }
+  },
+  "csv_checks": [
+    { "rel": "tables/effect_series.csv", "key_cols": ["date"], "rtol": 1e-5, "atol": 1e-5 }
+  ]
+}

@@ -136,6 +136,10 @@ jobs:
             out/run_ratio \
             out/yaml_ci_001
 
+      - name: Golden verify
+        run: |
+          python ci/golden_verify.py --use-defaults
+
       - name: Upload reports
         uses: actions/upload-artifact@v4
         with:

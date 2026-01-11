@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import argparse
 
-from tecore.cli.commands.version import cmd_version
-from tecore.cli.commands.validate import cmd_validate
+from tecore.cli.commands.audit import cmd_audit
 from tecore.cli.commands.cuped import cmd_cuped
 from tecore.cli.commands.cuped_ratio import cmd_cuped_ratio
-from tecore.cli.commands.audit import cmd_audit
+from tecore.cli.commands.validate import cmd_validate
+from tecore.cli.commands.version import cmd_version
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -22,6 +22,12 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--out", default=None, help="Output directory for report bundle (e.g. results/run_001).")
     sp.set_defaults(func=cmd_validate)
 
+    sp = sub.add_parser("audit", help="Audit/guardrails for an input dataset (writes bundle).")
+    sp.add_argument("--input", required=True, help="Path to CSV file.")
+    sp.add_argument("--schema", default="b2c_user_level", help="b2c_user_level | b2c_ratio | timeseries_causal_impact")
+    sp.add_argument("--out", required=True, help="Output directory for audit bundle (e.g. out/audit_001).")
+    sp.set_defaults(func=cmd_audit)
+
     sp = sub.add_parser("cuped", help="Base vs CUPED for a mean-difference metric.")
     sp.add_argument("--input", required=True, help="Path to CSV file.")
     sp.add_argument("--group-col", default="group")
@@ -33,9 +39,11 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--transform", choices=["raw", "winsor", "log1p"], default="raw")
     sp.add_argument("--winsor-q", type=float, default=0.99)
 
+    # Backward-compat outputs (kept for now)
     sp.add_argument("--out-json", dest="out_json", default=None, help="(Deprecated) Write results JSON to a file.")
     sp.add_argument("--out-md", dest="out_md", default=None, help="(Deprecated) Write markdown report to a file.")
 
+    # New unified bundle output
     sp.add_argument("--out", default=None, help="Output directory for report bundle (e.g. results/run_001).")
     sp.add_argument(
         "--audit",
@@ -55,9 +63,11 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--den-pre", required=True, help="Pre-period denominator column (e.g., sessions_pre).")
     sp.add_argument("--alpha", type=float, default=0.05)
 
+    # Backward-compat outputs (kept for now)
     sp.add_argument("--out-json", dest="out_json", default=None, help="(Deprecated) Write results JSON to a file.")
     sp.add_argument("--out-md", dest="out_md", default=None, help="(Deprecated) Write markdown report to a file.")
 
+    # New unified bundle output
     sp.add_argument("--out", default=None, help="Output directory for report bundle (e.g. results/run_001).")
     sp.add_argument(
         "--audit",
@@ -65,12 +75,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run audit/guardrails and include in bundle (MVP: ignored for now).",
     )
     sp.set_defaults(func=cmd_cuped_ratio)
-
-        sp = sub.add_parser("audit", help="Audit/guardrails for an input dataset (writes bundle).")
-    sp.add_argument("--input", required=True, help="Path to CSV file.")
-    sp.add_argument("--schema", default="b2c_user_level", help="b2c_user_level | b2c_ratio | timeseries_causal_impact")
-    sp.add_argument("--out", required=True, help="Output directory for audit bundle (e.g. out/audit_001).")
-    sp.set_defaults(func=cmd_audit)
 
     return p
 

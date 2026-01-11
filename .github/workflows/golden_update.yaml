@@ -52,17 +52,37 @@ jobs:
           tecore run --config configs/templates/cuped_ratio_example.yaml
           tecore run --config configs/templates/causal_impact_example.yaml
 
-          echo "=== out tree (files) ==="
-          find out -type f -maxdepth 4 -print | sort || true
-
       - name: Update ci/golden from out/
         run: |
           python ci/golden_update.py --golden ci/golden --out out --bundles run_mean run_ratio yaml_ci_001
 
+      - name: Verify updated golden against out/
+        run: |
+          python ci/golden_verify.py --golden ci/golden \
+            out/run_mean \
+            out/run_ratio \
+            out/yaml_ci_001
+
+      - name: Detect changes
+        id: diff
+        run: |
+          set -e
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create Pull Request
+        if: steps.diff.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           title: "Update golden runs"
           commit-message: "Update ci/golden from latest out/ bundles"
           branch: "ci/update-golden"
           delete-branch: true
+
+      - name: No changes
+        if: steps.diff.outputs.changed != 'true'
+        run: |
+          echo "No golden changes detected; skipping PR."

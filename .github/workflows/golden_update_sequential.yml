@@ -1,0 +1,48 @@
+name: golden-update-sequential
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
+
+      - name: Build out/
+        run: |
+          python scripts/build_out.py --clean
+
+      - name: Update sequential golden
+        run: |
+          python ci/golden_update.py --golden ci/golden --out out --bundles run_sequential_mean run_sequential_ratio
+
+      - name: Verify sequential golden
+        run: |
+          python ci/golden_verify.py --golden ci/golden out/run_sequential_mean out/run_sequential_ratio
+
+      - name: Commit and push
+        run: |
+          git status --porcelain
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add ci/golden/run_sequential_mean ci/golden/run_sequential_ratio
+          git commit -m "ci: add golden for sequential mean/ratio" || echo "Nothing to commit"
+          git push

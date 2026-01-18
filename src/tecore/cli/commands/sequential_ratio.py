@@ -112,7 +112,19 @@ def cmd_sequential_ratio(args) -> int:
         artifacts["plots"].append(save_plot(out_dir, name, fig))
 
     if bool(getattr(args, "audit", False)):
-        write_audit_bundle(out_dir, df, schema="sequential_ratio", parent_command="sequential-ratio")
+        audit_ctx = {
+            "group_col": spec.group_col,
+            "control_label": spec.control_label,
+            "test_label": spec.test_label,
+            "num_col": spec.num_col,
+            "den_col": spec.den_col,
+            "timestamp_col": spec.timestamp_col,
+            "looks": looks,
+            "n_looks": n_looks,
+            "max_n": max_n,
+            "min_n_per_group": cfg.min_n_per_group,
+        }
+        write_audit_bundle(out_dir, df, schema="sequential_ratio", parent_command="sequential-ratio", context=audit_ctx)
         artifacts["audit"] = {"audit_json": "audit.json", "audit_md": "audit.md"}
 
     report = render_sequential_md(res, cfg, spec)

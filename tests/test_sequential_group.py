@@ -32,8 +32,8 @@ def test_boundaries_are_finite():
     assert np.isfinite(z1) and np.isfinite(z2)
     assert z1 > z2
 
-    zp1 = boundary_pocock(alpha=alpha, n_looks=5, two_sided=True)
-    zp2 = boundary_pocock(alpha=alpha, n_looks=5, two_sided=True)
+    zp1 = boundary_pocock(alpha, 5, True)
+    zp2 = boundary_pocock(alpha, 5, True)
     assert np.isfinite(zp1) and np.isfinite(zp2)
     assert abs(zp1 - zp2) < 1e-12
 
@@ -70,9 +70,9 @@ def test_group_sequential_runs_and_has_look_table():
     assert isinstance(look_table, pd.DataFrame)
     assert len(look_table) == len(looks)
     assert "z" in look_table.columns
-    assert "boundary_z" in look_table.columns
     assert isinstance(warnings, list)
-
+    
     res = run_group_sequential(look_table, cfg)
     assert res.look_table is not None
+    assert "boundary_z" in res.look_table.columns
     assert res.decision in {"reject", "continue", "accept"}

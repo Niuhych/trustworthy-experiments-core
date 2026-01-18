@@ -1,0 +1,20 @@
+command: sequential-ratio
+input: examples/example_ratio.csv
+out: results/sequential_ratio_example
+audit: true
+
+params:
+  group_col: group
+  control: control
+  test: test
+  num: revenue
+  den: sessions
+
+  baseline_mode: first_look
+  mode: group_sequential
+  alpha: 0.05
+  spending: obrien_fleming
+  effect_direction: two_sided
+
+  looks: "2,4,6"
+  min_n_per_group: 1

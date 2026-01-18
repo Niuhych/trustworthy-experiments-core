@@ -58,13 +58,15 @@ jobs:
 
       - name: Update ci/golden from out/
         run: |
-          python ci/golden_update.py --golden ci/golden --out out --bundles run_mean run_ratio yaml_ci_001
+          python ci/golden_update.py --golden ci/golden --out out --bundles run_mean run_ratio run_sequential_mean run_sequential_ratio yaml_ci_001
 
       - name: Verify updated golden against out/
         run: |
           python ci/golden_verify.py --golden ci/golden \
             out/run_mean \
             out/run_ratio \
+            out/run_sequential_mean \
+            out/run_sequential_ratio \
             out/yaml_ci_001
 
       - name: Detect changes

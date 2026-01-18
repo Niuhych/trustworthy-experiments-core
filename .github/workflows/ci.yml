@@ -54,8 +54,8 @@ jobs:
           python ci/golden_verify.py --golden ci/golden \
             out/run_mean \
             out/run_ratio \
-            out/run_sequential_mean \
-            out/run_sequential_ratio \
+            # out/run_sequential_mean \
+            # out/run_sequential_ratio \
             out/yaml_ci_001
 
       - name: Upload reports

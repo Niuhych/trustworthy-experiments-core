@@ -110,9 +110,7 @@ def verify_audit(out_dir: Path) -> None:
         rel = str(rel).replace("\\", "/")
         _require_file(out_dir / rel)
 
-    _require_any([
-        out_dir / "tables" / "audit_column_profile.csv",
-    ])
+    _require_file(out_dir / "tables" / "audit_column_profile.csv")
 
 def verify_cuped(out_dir: Path) -> None:
     _require_file(out_dir / "tables" / "summary.csv")
@@ -138,6 +136,7 @@ def verify_sequential(out_dir: Path) -> None:
 
     if (out_dir / "audit.json").exists():
         verify_audit(out_dir)
+        _require_file(out_dir / "tables" / "audit_schedule_sanity.csv")
 
 
 def verify_sequential_simulate(out_dir: Path) -> None:

@@ -37,6 +37,10 @@ jobs:
             out/audit_ratio \
             out/run_mean \
             out/run_ratio \
+            out/sequential_simulate_mean \
+            out/run_sequential_mean \
+            out/sequential_simulate_ratio \
+            out/run_sequential_ratio \
             out/yaml_run_mean \
             out/yaml_run_ratio \
             out/yaml_ci_001
@@ -50,6 +54,8 @@ jobs:
           python ci/golden_verify.py --golden ci/golden \
             out/run_mean \
             out/run_ratio \
+            out/run_sequential_mean \
+            out/run_sequential_ratio \
             out/yaml_ci_001
 
       - name: Upload reports

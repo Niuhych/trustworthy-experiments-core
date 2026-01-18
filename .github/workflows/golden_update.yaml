@@ -58,7 +58,12 @@ jobs:
 
       - name: Update ci/golden from out/
         run: |
-          python ci/golden_update.py --golden ci/golden --out out --bundles run_mean run_ratio run_sequential_mean run_sequential_ratio yaml_ci_001
+          python ci/golden_update.py --golden ci/golden --out out --bundles \
+            run_mean \
+            run_ratio \
+            run_sequential_mean \
+            run_sequential_ratio \
+            yaml_ci_001
 
       - name: Verify updated golden against out/
         run: |
@@ -79,16 +84,17 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create Pull Request
+      - name: Commit updated golden to main
         if: steps.diff.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v6
-        with:
-          title: "Update golden runs"
-          commit-message: "Update ci/golden from latest out/ bundles"
-          branch: "ci/update-golden"
-          delete-branch: true
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ci/golden
+          git commit -m "Update ci/golden from latest out/ bundles"
+          git push origin HEAD:main
 
       - name: No changes
         if: steps.diff.outputs.changed != 'true'
         run: |
-          echo "No golden changes detected; skipping PR."
+          echo "No golden changes detected; nothing to commit."

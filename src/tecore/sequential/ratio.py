@@ -65,7 +65,6 @@ def linearize_ratio_frame(
 
     return ordered, float(r0), warnings
 
-
 def linearize_ratio(
     df: pd.DataFrame,
     num_col: str,
@@ -79,15 +78,13 @@ def linearize_ratio(
     timestamp_col: str = "timestamp",
 ) -> tuple[pd.DataFrame, float]:
     """
-    Public v1 wrapper: ratio linearization around a fixed baseline ratio.
-    Returns (df_out, baseline_ratio).
+    Public v1 wrapper (stable notebook/CLI API).
 
-    This repo's internal implementation currently exposes:
-      linearize_ratio_frame(df, spec, schedule, ...)
-
-    This wrapper ALWAYS builds and passes `spec` + `schedule`.
+    - Builds SequentialSpec + LookSchedule internally
+    - Calls linearize_ratio_frame(df, spec, schedule, baseline_mode=..., output_col=y_lin_col)
+    - Returns (df_out, baseline_ratio)
+    - Preserves warnings in df_out.attrs['tecore_warnings'] (non-breaking)
     """
-
     if baseline_mode == "first_look":
         if first_look_n is None:
             raise ValueError("first_look_n must be provided when baseline_mode='first_look'")
@@ -95,80 +92,29 @@ def linearize_ratio(
     else:
         schedule = LookSchedule(looks=[int(len(df))])
 
-    spec_sig = inspect.signature(SequentialSpec).parameters
-    spec_kwargs: dict[str, object] = {}
+    spec = SequentialSpec(
+        group_col=group_col,
+        control_label=control_label,
+        test_label=test_label,
+        num_col=num_col,
+        den_col=den_col,
+        timestamp_col=timestamp_col,
+    )
 
-    if "group_col" in spec_sig:
-        spec_kwargs["group_col"] = group_col
-    if "control_label" in spec_sig:
-        spec_kwargs["control_label"] = control_label
-    if "test_label" in spec_sig:
-        spec_kwargs["test_label"] = test_label
-    if "timestamp_col" in spec_sig:
-        spec_kwargs["timestamp_col"] = timestamp_col
+    df_out, r0, warnings = linearize_ratio_frame(
+        df=df,
+        spec=spec,
+        schedule=schedule,
+        baseline_mode=baseline_mode,
+        output_col=y_lin_col,  
+    )
 
-    if "num_col" in spec_sig:
-        spec_kwargs["num_col"] = num_col
-    if "den_col" in spec_sig:
-        spec_kwargs["den_col"] = den_col
-
-    spec = SequentialSpec(**spec_kwargs)
-
-    if "validate_spec_for_ratio" in globals():
-        vfn = globals()["validate_spec_for_ratio"]
-        vparams = inspect.signature(vfn).parameters
+    if warnings:
         try:
-            if "spec" in vparams:
-                spec = vfn(spec=spec)
-            else:
-                vkwargs = {}
-                for k, v in [
-                    ("group_col", group_col),
-                    ("control_label", control_label),
-                    ("test_label", test_label),
-                    ("num_col", num_col),
-                    ("den_col", den_col),
-                    ("timestamp_col", timestamp_col),
-                ]:
-                    if k in vparams:
-                        vkwargs[k] = v
-                out_spec = vfn(**vkwargs)
-                if isinstance(out_spec, SequentialSpec):
-                    spec = out_spec
-        except TypeError:
+            existing = list(df_out.attrs.get("tecore_warnings", []))
+            df_out.attrs["tecore_warnings"] = existing + list(warnings)
+        except Exception:
             pass
 
-    if "linearize_ratio_frame" not in globals():
-        raise ImportError("linearize_ratio_frame is not available in tecore.sequential.ratio")
-
-    fn = globals()["linearize_ratio_frame"]
-    fn_params = inspect.signature(fn).parameters
-
-    opt: dict[str, object] = {}
-    if "baseline_mode" in fn_params:
-        opt["baseline_mode"] = baseline_mode
-
-    if "y_lin_col" in fn_params:
-        opt["y_lin_col"] = y_lin_col
-    elif "out_col" in fn_params:
-        opt["out_col"] = y_lin_col
-    elif "y_col" in fn_params:
-        opt["y_col"] = y_lin_col
-
-    if "control_label" in fn_params:
-        opt["control_label"] = control_label
-
-    try:
-        out = fn(df=df, spec=spec, schedule=schedule, **opt)
-    except TypeError:
-        try:
-            out = fn(df, spec, schedule, **opt)
-        except TypeError:
-            out = fn(frame=df, spec=spec, schedule=schedule, **opt)
-
-    if isinstance(out, tuple) and len(out) == 2:
-        df_out, baseline = out
-        return df_out, float(baseline)
-
-    raise TypeError("linearize_ratio_frame must return (df_out, baseline_ratio)")
+    return df_out, float(r0)
 

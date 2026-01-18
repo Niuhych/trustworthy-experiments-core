@@ -1,7 +1,8 @@
 from __future__ import annotations
+
 import inspect
-from typing import Any, Tuple
-from typing import List
+
+from typing import Any, Tuple, Optional, List
 
 import numpy as np
 import pandas as pd
@@ -163,3 +164,4 @@ def linearize_ratio(
         f"Unexpected return type from linearize_ratio_frame: {type(out)}. "
         "Expected (df_out, baseline_ratio)."
     )
+

@@ -1,5 +1,5 @@
 command: sequential-simulate
-out: results/sequential_simulate_example
+out: out/yaml_sequential_simulate
 
 params:
   n: 20000

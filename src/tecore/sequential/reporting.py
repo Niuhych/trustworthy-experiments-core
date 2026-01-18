@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Dict
 
 import numpy as np
+import pandas as pd
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 
@@ -70,11 +71,18 @@ def make_z_trajectory_plot(result: SequentialResult) -> Figure:
     lt = result.look_table
     fig = plt.figure(figsize=(8, 4.5))
     ax = fig.add_subplot(111)
+
     x = lt["look_n"] if "look_n" in lt.columns else np.arange(1, len(lt) + 1)
-    ax.plot(x, lt["z"], label="z")
+    x = pd.to_numeric(x, errors="coerce").to_numpy(dtype=float)
+
+    z = pd.to_numeric(lt["z"], errors="coerce").to_numpy(dtype=float)
+    ax.plot(x, z, label="z")
+
     if "boundary_z" in lt.columns:
-        ax.plot(x, np.abs(lt["boundary_z"]), linestyle="--", label="boundary")
-        ax.plot(x, -np.abs(lt["boundary_z"]), linestyle="--")
+        bz = pd.to_numeric(lt["boundary_z"], errors="coerce").to_numpy(dtype=float)
+        ax.plot(x, np.abs(bz), linestyle="--", label="boundary")
+        ax.plot(x, -np.abs(bz), linestyle="--")
+
     ax.axhline(0.0, linewidth=1.0)
     ax.set_title("Sequential z-trajectory")
     ax.set_xlabel("look_n")
@@ -88,15 +96,25 @@ def make_effect_trajectory_plot(result: SequentialResult, cfg: SequentialConfig)
     lt = result.look_table
     fig = plt.figure(figsize=(8, 4.5))
     ax = fig.add_subplot(111)
+
     x = lt["look_n"] if "look_n" in lt.columns else np.arange(1, len(lt) + 1)
-    ax.plot(x, lt["diff"], label="estimate")
+    x = pd.to_numeric(x, errors="coerce").to_numpy(dtype=float)
+
+    diff = pd.to_numeric(lt["diff"], errors="coerce").to_numpy(dtype=float)
+    se = pd.to_numeric(lt["se"], errors="coerce").to_numpy(dtype=float)
+
+    ax.plot(x, diff, label="estimate")
+
     if "cs_low" in lt.columns and "cs_high" in lt.columns:
-        ax.fill_between(x, lt["cs_low"], lt["cs_high"], alpha=0.2, label="CS band")
+        cs_lo = pd.to_numeric(lt["cs_low"], errors="coerce").to_numpy(dtype=float)
+        cs_hi = pd.to_numeric(lt["cs_high"], errors="coerce").to_numpy(dtype=float)
+        ax.fill_between(x, cs_lo, cs_hi, alpha=0.2, label="CS band")
     else:
         zcrit = 1.96 if cfg.two_sided else 1.645
-        lo = lt["diff"] - zcrit * lt["se"]
-        hi = lt["diff"] + zcrit * lt["se"]
+        lo = diff - zcrit * se
+        hi = diff + zcrit * se
         ax.fill_between(x, lo, hi, alpha=0.2, label="fixed CI")
+
     ax.axhline(0.0, linewidth=1.0)
     ax.set_title("Effect estimate trajectory")
     ax.set_xlabel("look_n")

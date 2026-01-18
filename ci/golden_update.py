@@ -56,6 +56,41 @@ BUNDLES = {
             "plots/linearized_by_group.png",
         ],
     },
+    "run_sequential_mean": {
+        "required_files": [
+            "results.json",
+            "report.md",
+            "run_meta.json",
+            "tables/look_table.csv",
+        ],
+        "results_checks": {
+            "estimates.stop_look": {"rtol": 0.0, "atol": 0.0},
+            "estimates.final_p_value": {"rtol": 1e-6, "atol": 1e-8},
+        },
+        "csv_checks": [],
+        "plot_files": [
+            "plots/z_trajectory.png",
+            "plots/effect_trajectory.png",
+        ],
+    },
+    "run_sequential_ratio": {
+        "required_files": [
+            "results.json",
+            "report.md",
+            "run_meta.json",
+            "tables/look_table.csv",
+        ],
+        "results_checks": {
+            "estimates.stop_look": {"rtol": 0.0, "atol": 0.0},
+            "inputs.r0": {"rtol": 1e-6, "atol": 1e-8},
+            "estimates.final_p_value": {"rtol": 1e-6, "atol": 1e-8},
+        },
+        "csv_checks": [],
+        "plot_files": [
+            "plots/z_trajectory.png",
+            "plots/effect_trajectory.png",
+        ],
+    },
     "yaml_ci_001": {
         "required_files": [
             "results.json",
@@ -94,7 +129,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="out", help="Path to out/ directory")
     ap.add_argument("--golden", default="ci/golden", help="Path to ci/golden")
-    ap.add_argument("--bundles", nargs="*", default=["run_mean", "run_ratio", "yaml_ci_001"])
+    ap.add_argument("--bundles", nargs="*", default=["run_mean", "run_ratio", "run_sequential_mean", "run_sequential_ratio", "yaml_ci_001"])
     args = ap.parse_args()
 
     out_root = Path(args.out)

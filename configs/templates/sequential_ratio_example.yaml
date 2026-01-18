@@ -16,5 +16,5 @@ params:
   spending: obrien_fleming
   effect_direction: two_sided
 
-  looks: "2,4,6"
-  min_n_per_group: 1
+  looks: "200,400,600"
+  min_n_per_group: 50

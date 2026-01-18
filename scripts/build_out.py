@@ -49,6 +49,57 @@ def main() -> int:
         "--audit",
     ])
 
+    run([
+        "tecore", "sequential-simulate",
+        "--n", "12000",
+        "--effect", "0.05",
+        "--noise-sd", "1.0",
+        "--seed", "123",
+        "--looks", "2000,4000,6000,8000,10000,12000",
+        "--mode", "group_sequential",
+        "--spending", "obrien_fleming",
+        "--out", str(out / "sequential_simulate_mean"),
+    ])
+
+    run([
+        "tecore", "sequential-mean",
+        "--input", str(out / "sequential_simulate_mean" / "data.csv"),
+        "--y", "y",
+        "--looks", "2000,4000,6000,8000,10000,12000",
+        "--mode", "group_sequential",
+        "--spending", "obrien_fleming",
+        "--alpha", "0.05",
+        "--min-n-per-group", "50",
+        "--out", str(out / "run_sequential_mean"),
+    ])
+
+    run([
+        "tecore", "sequential-simulate",
+        "--n", "20000",
+        "--effect", "0.03",
+        "--noise-sd", "1.0",
+        "--seed", "41",
+        "--ratio",
+        "--looks", "2000,4000,6000,8000,12000,16000,20000",
+        "--mode", "group_sequential",
+        "--spending", "obrien_fleming",
+        "--out", str(out / "sequential_simulate_ratio"),
+    ])
+
+    run([
+        "tecore", "sequential-ratio",
+        "--input", str(out / "sequential_simulate_ratio" / "data.csv"),
+        "--num", "num",
+        "--den", "den",
+        "--baseline-mode", "first_look",
+        "--looks", "2000,4000,6000,8000,12000,16000,20000",
+        "--mode", "group_sequential",
+        "--spending", "obrien_fleming",
+        "--alpha", "0.05",
+        "--min-n-per-group", "50",
+        "--out", str(out / "run_sequential_ratio"),
+    ])
+    
     run(["tecore", "run", "--config", "configs/templates/cuped_example.yaml"])
     run(["tecore", "run", "--config", "configs/templates/cuped_ratio_example.yaml"])
     run(["tecore", "run", "--config", "configs/templates/causal_impact_example.yaml"])

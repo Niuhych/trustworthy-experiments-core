@@ -32,8 +32,9 @@ def test_boundaries_are_finite():
     assert np.isfinite(z1) and np.isfinite(z2)
     assert z1 > z2
 
-    zp1 = boundary_pocock(alpha, 5, True)
-    zp2 = boundary_pocock(alpha, 5, True)
+    info_fracs = [0.2, 0.4, 0.6, 0.8, 1.0]
+    zp1 = boundary_pocock(alpha, info_fracs, True)
+    zp2 = boundary_pocock(alpha, info_fracs, True)
     assert np.isfinite(zp1) and np.isfinite(zp2)
     assert abs(zp1 - zp2) < 1e-12
 

@@ -25,5 +25,4 @@ from tecore.sequential.schema import (
 )
 from tecore.sequential.group_sequential import run_group_sequential  
 from tecore.sequential.confidence_sequences import run_confidence_sequence  
-from tecore.sequential.ratio import linearize_ratio_frame
 from .ratio import linearize_ratio

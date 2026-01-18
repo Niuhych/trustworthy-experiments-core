@@ -11,6 +11,9 @@ from tecore.cli.commands.audit import cmd_audit
 from tecore.cli.commands.causal_impact import cmd_causal_impact
 from tecore.cli.commands.cuped import cmd_cuped
 from tecore.cli.commands.cuped_ratio import cmd_cuped_ratio
+from tecore.cli.commands.sequential_mean import cmd_sequential_mean
+from tecore.cli.commands.sequential_ratio import cmd_sequential_ratio
+from tecore.cli.commands.sequential_simulate import cmd_sequential_simulate
 from tecore.cli.commands.validate import cmd_validate
 
 
@@ -120,6 +123,95 @@ def cmd_run_config(args) -> int:
             return _fail("audit requires `out` (bundle dir)")
         return int(cmd_audit(_as_args(merged)))
 
+    if command in {"sequential-mean", "sequential_mean"}:
+        if input_path is None:
+            return _fail("sequential-mean requires `input`")
+        merged = {
+            **base_args,
+            "input": input_path,
+            "group_col": params.get("group_col", "group"),
+            "control": params.get("control", "control"),
+            "test": params.get("test", "test"),
+            "y": params.get("y"),
+            "timestamp_col": params.get("timestamp_col", None),
+            "unit_col": params.get("unit_col", None),
+            "mode": params.get("mode", "group_sequential"),
+            "alpha": float(params.get("alpha", 0.05)),
+            "two_sided": bool(params.get("two_sided", True)),
+            "spending": params.get("spending", "obrien_fleming"),
+            "effect_direction": params.get("effect_direction", "two_sided"),
+            "min_n_per_group": int(params.get("min_n_per_group", 50)),
+            "var_floor": float(params.get("var_floor", 1e-12)),
+            "cs_tau": float(params.get("cs_tau", 1.0)),
+            "seed": int(params.get("seed", 42)),
+            "looks": params.get("looks", None),
+            "n_looks": int(params.get("n_looks", 5)),
+            "max_n": int(params.get("max_n", 10000)),
+            "audit": audit_flag,
+        }
+        if not merged.get("y"):
+            return _fail("sequential-mean requires params.y")
+        return int(cmd_sequential_mean(_as_args(merged)))
+
+    if command in {"sequential-ratio", "sequential_ratio"}:
+        if input_path is None:
+            return _fail("sequential-ratio requires `input`")
+        merged = {
+            **base_args,
+            "input": input_path,
+            "group_col": params.get("group_col", "group"),
+            "control": params.get("control", "control"),
+            "test": params.get("test", "test"),
+            "num": params.get("num"),
+            "den": params.get("den"),
+            "timestamp_col": params.get("timestamp_col", None),
+            "unit_col": params.get("unit_col", None),
+            "baseline_mode": params.get("baseline_mode", "first_look"),
+            "mode": params.get("mode", "group_sequential"),
+            "alpha": float(params.get("alpha", 0.05)),
+            "two_sided": bool(params.get("two_sided", True)),
+            "spending": params.get("spending", "obrien_fleming"),
+            "effect_direction": params.get("effect_direction", "two_sided"),
+            "min_n_per_group": int(params.get("min_n_per_group", 50)),
+            "var_floor": float(params.get("var_floor", 1e-12)),
+            "cs_tau": float(params.get("cs_tau", 1.0)),
+            "seed": int(params.get("seed", 42)),
+            "looks": params.get("looks", None),
+            "n_looks": int(params.get("n_looks", 5)),
+            "max_n": int(params.get("max_n", 10000)),
+            "audit": audit_flag,
+        }
+        req = ["num", "den"]
+        miss = [k for k in req if not merged.get(k)]
+        if miss:
+            return _fail(f"sequential-ratio requires params: {miss}")
+        return int(cmd_sequential_ratio(_as_args(merged)))
+
+    if command in {"sequential-simulate", "sequential_simulate"}:
+        merged = {
+            **base_args,
+            "out": out_dir,
+            "n": int(params.get("n", 20000)),
+            "effect": float(params.get("effect", 0.0)),
+            "noise_sd": float(params.get("noise_sd", 1.0)),
+            "heavy_tail": bool(params.get("heavy_tail", False)),
+            "drift": bool(params.get("drift", False)),
+            "ratio": bool(params.get("ratio", False)),
+            "mode": params.get("mode", "group_sequential"),
+            "alpha": float(params.get("alpha", 0.05)),
+            "two_sided": bool(params.get("two_sided", True)),
+            "spending": params.get("spending", "obrien_fleming"),
+            "effect_direction": params.get("effect_direction", "two_sided"),
+            "min_n_per_group": int(params.get("min_n_per_group", 50)),
+            "var_floor": float(params.get("var_floor", 1e-12)),
+            "cs_tau": float(params.get("cs_tau", 1.0)),
+            "seed": int(params.get("seed", 42)),
+            "looks": params.get("looks", None),
+            "n_looks": int(params.get("n_looks", 5)),
+            "max_n": int(params.get("max_n", 10000)),
+        }
+        return int(cmd_sequential_simulate(_as_args(merged)))
+    
     if command in {"causal-impact", "causal_impact"}:
         if input_path is None:
             return _fail("causal-impact requires `input`")

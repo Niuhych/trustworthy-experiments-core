@@ -15,9 +15,10 @@ from tecore.sequential.simulate import SequentialSimConfig, simulate_ab_stream
 
 def test_cs_boundary_monotone_in_time():
     alpha = 0.05
-    b1 = cs_boundary(t=0.2, alpha=alpha, two_sided=True)
-    b2 = cs_boundary(t=0.8, alpha=alpha, two_sided=True)
-    # Typically decreases with time (harder early)
+
+    b1 = cs_boundary(0.2, alpha, True)
+    b2 = cs_boundary(0.8, alpha, True)
+
     assert np.isfinite(b1) and np.isfinite(b2)
     assert b1 >= b2
 

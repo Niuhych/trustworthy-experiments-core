@@ -131,6 +131,18 @@ def verify_cuped_ratio(out_dir: Path) -> None:
     if (out_dir / "audit.json").exists():
         verify_audit(out_dir)
 
+def verify_sequential(out_dir: Path) -> None:
+    _require_file(out_dir / "tables" / "look_table.csv")
+    _require_file(out_dir / "plots" / "z_trajectory.png")
+    _require_file(out_dir / "plots" / "effect_trajectory.png")
+
+    if (out_dir / "audit.json").exists():
+        verify_audit(out_dir)
+
+
+def verify_sequential_simulate(out_dir: Path) -> None:
+    verify_sequential(out_dir)
+    _require_file(out_dir / "data.csv")
 
 def verify_causal_impact(out_dir: Path) -> None:
     _require_file(out_dir / "tables" / "effect_series.csv")
@@ -156,6 +168,12 @@ def verify_one(out_dir: Path) -> None:
         verify_cuped_ratio(out_dir)
     elif cmd == "causal-impact":
         verify_causal_impact(out_dir)
+    elif cmd == "sequential-mean":
+        verify_sequential(out_dir)
+    elif cmd == "sequential-ratio":
+        verify_sequential(out_dir)
+    elif cmd == "sequential-simulate":
+        verify_sequential_simulate(out_dir)
     else:
         _ok(f"{out_dir}: unknown command '{cmd}', only common checks applied")
 

@@ -103,6 +103,9 @@ def main() -> int:
     run(["tecore", "run", "--config", "configs/templates/cuped_example.yaml"])
     run(["tecore", "run", "--config", "configs/templates/cuped_ratio_example.yaml"])
     run(["tecore", "run", "--config", "configs/templates/causal_impact_example.yaml"])
+    run(["tecore", "run", "--config", "configs/templates/sequential_mean_example.yaml"])
+    run(["tecore", "run", "--config", "configs/templates/sequential_ratio_example.yaml"])
+    run(["tecore", "run", "--config", "configs/templates/sequential_simulate_then_run.yaml"])
 
     if args.print_tree:
         print("=== out tree (files) ===")

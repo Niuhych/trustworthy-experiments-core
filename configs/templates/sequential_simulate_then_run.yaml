@@ -1,0 +1,18 @@
+command: sequential-simulate
+out: results/sequential_simulate_example
+
+params:
+  n: 20000
+  effect: 0.1
+  noise_sd: 1.0
+  heavy_tail: false
+  drift: false
+  ratio: false
+
+  mode: confidence_sequence
+  alpha: 0.05
+  cs_tau: 1.0
+
+  n_looks: 10
+  max_n: 20000
+  min_n_per_group: 200

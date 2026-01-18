@@ -1,6 +1,6 @@
 command: sequential-mean
 input: examples/example_user_level.csv
-out: results/sequential_mean_example
+out: out/yaml_sequential_mean
 audit: true
 
 params:
@@ -13,6 +13,5 @@ params:
   spending: obrien_fleming
   effect_direction: two_sided
 
-  # For the tiny bundled example dataset, use small looks / guardrails.
   looks: "4,8,10"
   min_n_per_group: 2

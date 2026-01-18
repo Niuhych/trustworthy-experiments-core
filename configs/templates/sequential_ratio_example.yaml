@@ -1,6 +1,6 @@
 command: sequential-ratio
 input: examples/example_ratio.csv
-out: results/sequential_ratio_example
+out: out/yaml_sequential_ratio
 audit: true
 
 params:
@@ -16,5 +16,5 @@ params:
   spending: obrien_fleming
   effect_direction: two_sided
 
-  looks: "200,400,600"
-  min_n_per_group: 50
+  looks: "2,4,6"
+  min_n_per_group: 1

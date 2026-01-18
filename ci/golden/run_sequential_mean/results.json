@@ -1,0 +1,42 @@
+{
+  "command": "sequential-mean",
+  "inputs": {
+    "input": "out/sequential_simulate_mean/data.csv",
+    "group_col": "group",
+    "control": "control",
+    "test": "test",
+    "y": "y",
+    "mode": "group_sequential",
+    "alpha": 0.05,
+    "spending": "obrien_fleming",
+    "effect_direction": "two_sided"
+  },
+  "estimates": {
+    "decision": "reject",
+    "stopped": true,
+    "stop_look": 10000,
+    "final_p_value": 0.0011402447088012543,
+    "final_ci": [
+      0.025839349962191303,
+      0.10414763408266989
+    ],
+    "cs": null
+  },
+  "diagnostics": {
+    "mode": "group_sequential",
+    "spending": "obrien_fleming",
+    "two_sided": true,
+    "effect_direction": "two_sided"
+  },
+  "warnings": [],
+  "artifacts": {
+    "report_md": "report.md",
+    "plots": [
+      "plots/z_trajectory.png",
+      "plots/effect_trajectory.png"
+    ],
+    "tables": [
+      "tables/look_table.csv"
+    ]
+  }
+}

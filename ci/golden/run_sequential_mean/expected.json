@@ -1,0 +1,25 @@
+{
+  "required_files": [
+    "results.json",
+    "report.md",
+    "run_meta.json",
+    "tables/look_table.csv"
+  ],
+  "results_checks": {
+    "estimates.stop_look": {
+      "value": 10000,
+      "rtol": 0.0,
+      "atol": 0.0
+    },
+    "estimates.final_p_value": {
+      "value": 0.0011402447088012543,
+      "rtol": 1e-06,
+      "atol": 1e-08
+    }
+  },
+  "csv_checks": [],
+  "plot_files": [
+    "plots/z_trajectory.png",
+    "plots/effect_trajectory.png"
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "timestamp_utc": "2026-01-18T19:17:35+00:00",
+  "tecore_version": "0.1.0",
+  "python_version": "3.11.14 (main, Oct 10 2025, 01:03:14) [GCC 13.3.0]",
+  "platform": {
+    "system": "Linux",
+    "release": "6.11.0-1018-azure",
+    "machine": "x86_64",
+    "python_implementation": "CPython"
+  },
+  "cwd": "/home/runner/work/trustworthy-experiments-core/trustworthy-experiments-core",
+  "args": {
+    "command": "sequential-mean",
+    "input": "out/sequential_simulate_mean/data.csv",
+    "group_col": "group",
+    "control": "control",
+    "test": "test",
+    "y": "y",
+    "timestamp_col": null,
+    "unit_col": null,
+    "mode": "group_sequential",
+    "alpha": 0.05,
+    "two_sided": true,
+    "spending": "obrien_fleming",
+    "effect_direction": "two_sided",
+    "min_n_per_group": 50,
+    "var_floor": 1e-12,
+    "cs_tau": 1.0,
+    "seed": 42,
+    "looks": "2000,4000,6000,8000,10000,12000",
+    "n_looks": 5,
+    "max_n": 10000,
+    "out": "out/run_sequential_mean",
+    "audit": false
+  },
+  "extra": {
+    "command": "sequential-mean"
+  }
+}

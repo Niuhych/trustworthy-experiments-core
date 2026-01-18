@@ -1,0 +1,47 @@
+{
+  "command": "sequential-ratio",
+  "inputs": {
+    "input": "out/sequential_simulate_ratio/data.csv",
+    "group_col": "group",
+    "control": "control",
+    "test": "test",
+    "num": "num",
+    "den": "den",
+    "baseline_mode": "first_look",
+    "r0": 0.9973360639054847,
+    "mode": "group_sequential",
+    "alpha": 0.05,
+    "spending": "obrien_fleming",
+    "effect_direction": "two_sided"
+  },
+  "estimates": {
+    "decision": "reject",
+    "stopped": true,
+    "stop_look": 8000,
+    "final_p_value": 0.0003833196339507276,
+    "final_ci": [
+      0.03561317722113727,
+      0.12333837832657718
+    ],
+    "cs": null
+  },
+  "diagnostics": {
+    "mode": "group_sequential",
+    "spending": "obrien_fleming",
+    "two_sided": true,
+    "effect_direction": "two_sided",
+    "ratio_baseline_r0": 0.9973360639054847,
+    "baseline_mode": "first_look"
+  },
+  "warnings": [],
+  "artifacts": {
+    "report_md": "report.md",
+    "plots": [
+      "plots/z_trajectory.png",
+      "plots/effect_trajectory.png"
+    ],
+    "tables": [
+      "tables/look_table.csv"
+    ]
+  }
+}

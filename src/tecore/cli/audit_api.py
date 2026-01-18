@@ -87,8 +87,9 @@ def build_audit(df: pd.DataFrame, schema: str, parent_command: str | None = None
         if df[group_col].nunique(dropna=True) < 2:
             warnings.append(f"Group column `{group_col}` has <2 unique values. Experiment comparison may be impossible.")
 
-    if schema not in {"b2c_user_level", "b2c_ratio", "timeseries_causal_impact"}:
+    if schema not in {"b2c_user_level", "b2c_ratio", "timeseries_causal_impact", "sequential_mean", "sequential_ratio"}:
         warnings.append(f"Unknown schema `{schema}`. Running generic audit only.")
+
 
     user_id_col = _detect_user_id_col(df)
     if user_id_col is None:
@@ -101,7 +102,7 @@ def build_audit(df: pd.DataFrame, schema: str, parent_command: str | None = None
         if dup_uid > 0:
             warnings.append(f"`{user_id_col}` has duplicates: n={dup_uid}. Data may be not user-level.")
 
-    den_cols = _denominator_like_cols(df) if schema in {"b2c_ratio", "b2c_user_level"} else []
+    den_cols = _denominator_like_cols(df) if schema in {"b2c_ratio", "b2c_user_level", "sequential_ratio"} else []
     zero_den: dict[str, float] = {}
     for c in den_cols:
         s = pd.to_numeric(df[c], errors="coerce")

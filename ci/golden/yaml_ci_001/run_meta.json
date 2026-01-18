@@ -1,0 +1,30 @@
+{
+  "timestamp_utc": "2026-01-18T20:25:18+00:00",
+  "tecore_version": "0.1.0",
+  "python_version": "3.11.14 (main, Oct 10 2025, 01:03:14) [GCC 13.3.0]",
+  "platform": {
+    "system": "Linux",
+    "release": "6.11.0-1018-azure",
+    "machine": "x86_64",
+    "python_implementation": "CPython"
+  },
+  "cwd": "/home/runner/work/trustworthy-experiments-core/trustworthy-experiments-core",
+  "args": {
+    "out": "out/yaml_ci_001",
+    "input": "examples/example_ts_long.csv",
+    "schema": "timeseries_causal_impact",
+    "date_col": "date",
+    "y": "y",
+    "x": "sessions,active_users",
+    "intervention": "2025-02-15",
+    "alpha": 0.05,
+    "bootstrap_iters": 200,
+    "n_placebos": 0,
+    "seed": 42,
+    "pre_period_min_points": 30,
+    "audit": true
+  },
+  "extra": {
+    "command": "causal-impact"
+  }
+}

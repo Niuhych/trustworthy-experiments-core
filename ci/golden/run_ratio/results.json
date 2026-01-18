@@ -1,0 +1,47 @@
+{
+  "command": "cuped-ratio",
+  "inputs": {
+    "input": "examples/example_ratio.csv",
+    "group_col": "group",
+    "control": "control",
+    "test": "test",
+    "num": "revenue",
+    "den": "sessions",
+    "num_pre": "revenue_pre",
+    "den_pre": "sessions_pre",
+    "alpha": 0.05
+  },
+  "estimates": {
+    "base": {
+      "diff_linearized": 0.5047619047619052,
+      "p_value": 0.8317559838358681,
+      "ratio_diff_approx": 0.04326530612244902,
+      "rel_lift_approx": 0.11648351648351658
+    },
+    "cuped": {
+      "diff_linearized": 0.06481700572837287,
+      "p_value": 0.8114544883624155,
+      "ratio_diff_approx": 0.005555743348146246,
+      "rel_lift_approx": 0.014957770552701432
+    }
+  },
+  "diagnostics": {
+    "r0_post_control": 0.37142857142857144,
+    "r0_pre_control": 0.3225806451612903,
+    "theta": 1.2785898628162027,
+    "corr_pre_post_linearized": 0.9936258848587786,
+    "zero_den_share": 0.0,
+    "mean_den_control": 11.666666666666666
+  },
+  "warnings": [],
+  "artifacts": {
+    "report_md": "report.md",
+    "plots": [
+      "plots/ratio_post_by_group.png",
+      "plots/linearized_by_group.png"
+    ],
+    "tables": [
+      "tables/summary.csv"
+    ]
+  }
+}

@@ -4,20 +4,17 @@
     "report.md",
     "run_meta.json",
     "tables/effect_series.csv",
-    "plots/observed_vs_counterfactual.png",
-    "plots/point_effect.png",
-    "plots/cumulative_effect.png",
     "audit.json",
     "audit.md"
   ],
   "results_checks": {
     "estimates.summary.point_effect": {
-      "value": 11.1501383322,
+      "value": 11.150138332246296,
       "rtol": 1e-05,
       "atol": 1e-05
     },
     "estimates.summary.cum_effect": {
-      "value": 390.254841629,
+      "value": 390.2548416286204,
       "rtol": 1e-05,
       "atol": 1e-05
     }

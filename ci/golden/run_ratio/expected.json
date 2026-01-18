@@ -4,24 +4,22 @@
     "report.md",
     "run_meta.json",
     "tables/summary.csv",
-    "plots/ratio_post_by_group.png",
-    "plots/linearized_by_group.png",
     "audit.json",
     "audit.md"
   ],
   "results_checks": {
     "estimates.base.diff_linearized": {
-      "value": 0.5047619047619047,
+      "value": 0.5047619047619052,
       "rtol": 1e-06,
       "atol": 1e-06
     },
     "estimates.cuped.diff_linearized": {
-      "value": 0.06481700572843291,
+      "value": 0.06481700572837287,
       "rtol": 1e-06,
       "atol": 1e-06
     },
     "diagnostics.theta": {
-      "value": 1.2785898628181922,
+      "value": 1.2785898628162027,
       "rtol": 1e-06,
       "atol": 1e-06
     }

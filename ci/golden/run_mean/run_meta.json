@@ -1,0 +1,31 @@
+{
+  "timestamp_utc": "2026-01-18T20:25:11+00:00",
+  "tecore_version": "0.1.0",
+  "python_version": "3.11.14 (main, Oct 10 2025, 01:03:14) [GCC 13.3.0]",
+  "platform": {
+    "system": "Linux",
+    "release": "6.11.0-1018-azure",
+    "machine": "x86_64",
+    "python_implementation": "CPython"
+  },
+  "cwd": "/home/runner/work/trustworthy-experiments-core/trustworthy-experiments-core",
+  "args": {
+    "command": "cuped",
+    "input": "examples/example_user_level.csv",
+    "group_col": "group",
+    "control": "control",
+    "test": "test",
+    "y": "revenue",
+    "x": "revenue_pre",
+    "alpha": 0.05,
+    "transform": "raw",
+    "winsor_q": 0.99,
+    "out_json": null,
+    "out_md": null,
+    "out": "out/run_mean",
+    "audit": true
+  },
+  "extra": {
+    "command": "cuped"
+  }
+}

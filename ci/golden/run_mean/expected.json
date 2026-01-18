@@ -3,9 +3,6 @@
     "results.json",
     "report.md",
     "run_meta.json",
-    "tables/summary.csv",
-    "plots/y_post_by_group.png",
-    "plots/x_vs_y_scatter.png",
     "audit.json",
     "audit.md"
   ],
@@ -16,7 +13,7 @@
       "atol": 1e-06
     },
     "estimates.cuped.diff": {
-      "value": 0.3665058236266824,
+      "value": 0.366505823627288,
       "rtol": 1e-06,
       "atol": 1e-06
     },

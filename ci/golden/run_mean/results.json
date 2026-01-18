@@ -1,0 +1,56 @@
+{
+  "command": "cuped",
+  "inputs": {
+    "input": "examples/example_user_level.csv",
+    "group_col": "group",
+    "control": "control",
+    "test": "test",
+    "y": "revenue",
+    "x": "revenue_pre",
+    "alpha": 0.05,
+    "transform": "raw",
+    "winsor_q": 0.99
+  },
+  "estimates": {
+    "base": {
+      "n_control": 5,
+      "n_test": 5,
+      "mean_control": 0.96,
+      "mean_test": 1.22,
+      "diff": 0.26,
+      "p_value": 0.7906120972568262,
+      "t_stat": 0.27513612634097534,
+      "df": 7.527227416000445,
+      "ci_low": -1.9431986595650892,
+      "ci_high": 2.463198659565089
+    },
+    "cuped": {
+      "n_control": 5,
+      "n_test": 5,
+      "mean_control": 0.906747088186356,
+      "mean_test": 1.273252911813644,
+      "diff": 0.366505823627288,
+      "p_value": 0.07784990141591562,
+      "t_stat": 2.0336511374196418,
+      "df": 7.689355818953557,
+      "ci_low": -0.05202427699692441,
+      "ci_high": 0.7850359242515004
+    }
+  },
+  "diagnostics": {
+    "theta": 1.331322795341098,
+    "corr_xy": 0.9722876651983576,
+    "var_ratio_adj_over_raw": 0.05465669610312613
+  },
+  "warnings": [],
+  "artifacts": {
+    "report_md": "report.md",
+    "plots": [
+      "plots/y_post_by_group.png",
+      "plots/x_vs_y_scatter.png"
+    ],
+    "tables": [
+      "tables/summary.csv"
+    ]
+  }
+}

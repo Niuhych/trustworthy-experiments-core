@@ -1,0 +1,65 @@
+{
+  "command": "causal-impact",
+  "inputs": {
+    "input": "examples/example_ts_long.csv",
+    "schema": "timeseries_causal_impact",
+    "date_col": "date",
+    "y": "y",
+    "x": [
+      "sessions",
+      "active_users"
+    ],
+    "intervention": "2025-02-15",
+    "alpha": 0.05,
+    "bootstrap_iters": 200,
+    "n_placebos": 0,
+    "seed": 42
+  },
+  "estimates": {
+    "summary": {
+      "method": "causal_impact_like",
+      "intervention_date": {},
+      "alpha": 0.05,
+      "point_effect": 11.150138332246296,
+      "point_ci": [
+        10.853921173016772,
+        11.445214992961589
+      ],
+      "cum_effect": 390.2548416286204,
+      "cum_ci": [
+        379.88724105558697,
+        400.5825247536556
+      ],
+      "rel_effect": 0.09321198851769315,
+      "rel_ci": [
+        0.09073569722675956,
+        0.09567874556508235
+      ],
+      "p_value": null
+    }
+  },
+  "diagnostics": {
+    "r2_pre": 0.6764473558341777,
+    "rmse_pre": 1.4539179052534927,
+    "acf_lag1": -0.38321965396664665,
+    "acf_lag2": -0.0017731598768240483,
+    "acf_lag3": -0.07397767651134934,
+    "acf_lag4": 0.17946480751794766,
+    "acf_lag5": -0.16397107159458363,
+    "acf_lag6": 0.1811198735271556,
+    "acf_lag7": -0.08132850956410398,
+    "max_abs_acf_1_to_7": 0.38321965396664665
+  },
+  "warnings": [],
+  "artifacts": {
+    "report_md": "report.md",
+    "plots": [
+      "plots/observed_vs_counterfactual.png",
+      "plots/point_effect.png",
+      "plots/cumulative_effect.png"
+    ],
+    "tables": [
+      "tables/effect_series.csv"
+    ]
+  }
+}

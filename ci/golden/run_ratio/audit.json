@@ -1,0 +1,36 @@
+{
+  "command": "audit",
+  "parent_command": "cuped-ratio",
+  "inputs": {
+    "schema": "b2c_ratio",
+    "context": {}
+  },
+  "shape": {
+    "n_rows": 6,
+    "n_cols": 5
+  },
+  "detected": {
+    "group_col": "group",
+    "user_id_col": null,
+    "denominator_like_cols": [
+      "sessions",
+      "sessions_pre"
+    ],
+    "resolved_looks": null
+  },
+  "checks": {
+    "zero_denominator_share": {}
+  },
+  "warnings": [
+    "No user identifier column found (`user_id`/`uid`/etc). Duplicate-user checks skipped."
+  ],
+  "errors": [],
+  "artifacts": {
+    "tables": [
+      "tables/audit_column_profile.csv",
+      "tables/audit_numeric_summary.csv",
+      "tables/audit_group_balance.csv"
+    ],
+    "plots": []
+  }
+}

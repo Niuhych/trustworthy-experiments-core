@@ -1,0 +1,33 @@
+{
+  "command": "audit",
+  "parent_command": "causal-impact",
+  "inputs": {
+    "schema": "timeseries_causal_impact",
+    "context": {}
+  },
+  "shape": {
+    "n_rows": 80,
+    "n_cols": 4
+  },
+  "detected": {
+    "group_col": null,
+    "user_id_col": null,
+    "denominator_like_cols": [],
+    "resolved_looks": null
+  },
+  "checks": {
+    "zero_denominator_share": {}
+  },
+  "warnings": [
+    "No obvious group column found (expected `group`). Group balance checks skipped.",
+    "No user identifier column found (`user_id`/`uid`/etc). Duplicate-user checks skipped."
+  ],
+  "errors": [],
+  "artifacts": {
+    "tables": [
+      "tables/audit_column_profile.csv",
+      "tables/audit_numeric_summary.csv"
+    ],
+    "plots": []
+  }
+}

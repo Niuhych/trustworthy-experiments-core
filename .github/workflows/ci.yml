@@ -50,6 +50,9 @@ jobs:
             out/run_sequential_ratio \
             out/yaml_run_mean \
             out/yaml_run_ratio \
+            out/yaml_sequential_mean \
+            out/yaml_sequential_ratio \
+            out/yaml_sequential_simulate \
             out/yaml_ci_001
 
       - name: Verify causal-impact contract

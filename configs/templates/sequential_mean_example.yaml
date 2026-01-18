@@ -1,0 +1,18 @@
+command: sequential-mean
+input: examples/example_user_level.csv
+out: results/sequential_mean_example
+audit: true
+
+params:
+  group_col: group
+  control: control
+  test: test
+  y: revenue
+  mode: group_sequential
+  alpha: 0.05
+  spending: obrien_fleming
+  effect_direction: two_sided
+
+  # For the tiny bundled example dataset, use small looks / guardrails.
+  looks: "4,8,10"
+  min_n_per_group: 2

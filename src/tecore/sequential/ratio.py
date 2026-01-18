@@ -75,93 +75,100 @@ def linearize_ratio(
     baseline_mode: str = "first_look",
     first_look_n: int | None = None,
     y_lin_col: str = "y_lin",
-    eps: float = 1e-12,
-) -> Tuple[pd.DataFrame, float]:
+    test_label: str = "test",
+    timestamp_col: str = "timestamp",
+) -> tuple[pd.DataFrame, float]:
     """
-    v1 public wrapper.
+    Public v1 wrapper: ratio linearization around a fixed baseline ratio.
+    Returns (df_out, baseline_ratio).
 
-    Returns:
-      (df_out, baseline_ratio)
+    This repo's internal implementation currently exposes:
+      linearize_ratio_frame(df, spec, schedule, ...)
 
-    Behavior:
-      - linearize ratio around a fixed baseline ratio r0 (estimated from control)
-      - output column name: y_lin_col (default: 'y_lin')
-      - baseline_mode:
-          * 'first_look' (requires first_look_n)
-          * 'full_control' (optional, if supported by underlying implementation)
-
-    This wrapper forwards to the internal implementation `linearize_ratio_frame`
-    while staying robust to small signature differences.
+    This wrapper ALWAYS builds and passes `spec` + `schedule`.
     """
-    try:
-        fn = linearize_ratio_frame  
-    except NameError as e:
-        raise ImportError("linearize_ratio_frame not found in tecore.sequential.ratio") from e
 
-    sig = inspect.signature(fn)
-    param_names = set(sig.parameters.keys())
-
-    candidates: dict[str, Any] = {
-        "df": df,
-        "frame": df,
-        "data": df,
-
-        # columns
-        "num_col": num_col,
-        "numerator_col": num_col,
-        "num": num_col,
-
-        "den_col": den_col,
-        "denominator_col": den_col,
-        "den": den_col,
-
-        "group_col": group_col,
-        "variant_col": group_col,
-        "arm_col": group_col,
-
-        "control_label": control_label,
-        "control": control_label,
-        "control_value": control_label,
-        "control_group": control_label,
-
-        "baseline_mode": baseline_mode,
-        "baseline": baseline_mode,
-
-        "first_look_n": first_look_n,
-        "look_n": first_look_n,
-        "initial_look_n": first_look_n,
-
-        "y_lin_col": y_lin_col,
-        "out_col": y_lin_col,
-        "y_col": y_lin_col,
-        "output_col": y_lin_col,
-
-        "eps": eps,
-        "epsilon": eps,
-    }
-
-    call_kwargs: dict[str, Any] = {}
-    for p in param_names:
-        if p in candidates:
-            call_kwargs[p] = candidates[p]
-
-    if baseline_mode == "first_look" and first_look_n is None:
-        if any(k in param_names for k in ["first_look_n", "look_n", "initial_look_n"]):
+    if baseline_mode == "first_look":
+        if first_look_n is None:
             raise ValueError("first_look_n must be provided when baseline_mode='first_look'")
+        schedule = LookSchedule(looks=[int(first_look_n)])
+    else:
+        schedule = LookSchedule(looks=[int(len(df))])
 
-    out = fn(**call_kwargs)
+    spec_sig = inspect.signature(SequentialSpec).parameters
+    spec_kwargs: dict[str, object] = {}
+
+    if "group_col" in spec_sig:
+        spec_kwargs["group_col"] = group_col
+    if "control_label" in spec_sig:
+        spec_kwargs["control_label"] = control_label
+    if "test_label" in spec_sig:
+        spec_kwargs["test_label"] = test_label
+    if "timestamp_col" in spec_sig:
+        spec_kwargs["timestamp_col"] = timestamp_col
+
+    if "num_col" in spec_sig:
+        spec_kwargs["num_col"] = num_col
+    if "den_col" in spec_sig:
+        spec_kwargs["den_col"] = den_col
+
+    spec = SequentialSpec(**spec_kwargs)
+
+    if "validate_spec_for_ratio" in globals():
+        vfn = globals()["validate_spec_for_ratio"]
+        vparams = inspect.signature(vfn).parameters
+        try:
+            if "spec" in vparams:
+                spec = vfn(spec=spec)
+            else:
+                vkwargs = {}
+                for k, v in [
+                    ("group_col", group_col),
+                    ("control_label", control_label),
+                    ("test_label", test_label),
+                    ("num_col", num_col),
+                    ("den_col", den_col),
+                    ("timestamp_col", timestamp_col),
+                ]:
+                    if k in vparams:
+                        vkwargs[k] = v
+                out_spec = vfn(**vkwargs)
+                if isinstance(out_spec, SequentialSpec):
+                    spec = out_spec
+        except TypeError:
+            pass
+
+    if "linearize_ratio_frame" not in globals():
+        raise ImportError("linearize_ratio_frame is not available in tecore.sequential.ratio")
+
+    fn = globals()["linearize_ratio_frame"]
+    fn_params = inspect.signature(fn).parameters
+
+    opt: dict[str, object] = {}
+    if "baseline_mode" in fn_params:
+        opt["baseline_mode"] = baseline_mode
+
+    if "y_lin_col" in fn_params:
+        opt["y_lin_col"] = y_lin_col
+    elif "out_col" in fn_params:
+        opt["out_col"] = y_lin_col
+    elif "y_col" in fn_params:
+        opt["y_col"] = y_lin_col
+
+    if "control_label" in fn_params:
+        opt["control_label"] = control_label
+
+    try:
+        out = fn(df=df, spec=spec, schedule=schedule, **opt)
+    except TypeError:
+        try:
+            out = fn(df, spec, schedule, **opt)
+        except TypeError:
+            out = fn(frame=df, spec=spec, schedule=schedule, **opt)
 
     if isinstance(out, tuple) and len(out) == 2:
-        return out[0], float(out[1])
+        df_out, baseline = out
+        return df_out, float(baseline)
 
-    if isinstance(out, pd.DataFrame):
-        raise TypeError(
-            "linearize_ratio_frame returned a DataFrame only; expected (df, baseline_ratio). "
-            "Please update linearize_ratio_frame to also return baseline_ratio."
-        )
-
-    raise TypeError(
-        f"Unexpected return type from linearize_ratio_frame: {type(out)}. "
-        "Expected (df_out, baseline_ratio)."
-    )
+    raise TypeError("linearize_ratio_frame must return (df_out, baseline_ratio)")
 

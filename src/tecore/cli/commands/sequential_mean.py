@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+import sys
+from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from tecore.cli.audit_api import write_audit_bundle
@@ -13,7 +15,8 @@ from tecore.cli.bundle import (
     write_run_meta,
     write_table,
 )
-from tecore.sequential import (
+
+from tecore.sequential.schema import (
     EffectDirection,
     LookSchedule,
     SequentialConfig,
@@ -21,128 +24,262 @@ from tecore.sequential import (
     SequentialSpec,
     SpendingFunction,
 )
-from tecore.sequential.confidence_sequences import run_confidence_sequence
-from tecore.sequential.group_sequential import run_group_sequential
 from tecore.sequential.preprocess import build_look_table_mean
-from tecore.sequential.reporting import make_sequential_plots, render_sequential_md
+from tecore.sequential.group_sequential import run_group_sequential
+from tecore.sequential.confidence_sequences import run_confidence_sequence
 
 
-def _parse_looks_csv(s: str) -> list[int]:
-    parts = [p.strip() for p in str(s).split(",") if p.strip()]
-    out: list[int] = []
-    for p in parts:
-        out.append(int(p))
-    return out
+def _warn(msg: str) -> None:
+    print(f"[tecore][warn] {msg}", file=sys.stderr)
+
+
+def _parse_looks(looks: str | None, n_looks: int | None, max_n: int | None) -> list[int]:
+    if looks and str(looks).strip():
+        parts = [p.strip() for p in str(looks).split(",") if p.strip()]
+        out = [int(x) for x in parts]
+        out = [x for x in out if x > 0]
+        if not out:
+            raise ValueError("--looks parsed to empty list")
+        return sorted(list(dict.fromkeys(out)))
+
+    if n_looks is not None and max_n is not None:
+        K = int(n_looks)
+        N = int(max_n)
+        if K <= 0 or N <= 0:
+            raise ValueError("--n-looks and --max-n must be > 0")
+        grid = np.linspace(N / K, N, K)
+        out = [int(round(x)) for x in grid]
+        out = [x for x in out if x > 0]
+        return sorted(list(dict.fromkeys(out)))
+
+    raise ValueError("Provide either --looks OR (--n-looks and --max-n).")
+
+
+def _plot_z_trajectory(tab: pd.DataFrame, title: str):
+    import matplotlib.pyplot as plt
+
+    x = pd.to_numeric(tab["look_n"], errors="coerce").to_numpy(dtype=float)
+    z = pd.to_numeric(tab["z"], errors="coerce").to_numpy(dtype=float)
+
+    bz = None
+    if "boundary_z" in tab.columns:
+        bz = pd.to_numeric(tab["boundary_z"], errors="coerce").to_numpy(dtype=float)
+
+    fig = plt.figure(figsize=(10, 5.5))
+    ax = fig.add_subplot(111)
+
+    ax.plot(x, z, marker="o", label="z (diff / se)")
+    if bz is not None and np.isfinite(bz).any():
+        ax.plot(x, bz, linestyle="--", label="boundary (+)")
+        ax.plot(x, -bz, linestyle="--", label="boundary (-)")
+
+    ax.axhline(0, linewidth=1)
+    ax.set_title(title)
+    ax.set_xlabel("look_n")
+    ax.set_ylabel("z")
+    ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0), borderaxespad=0.0)
+    fig.tight_layout()
+    return fig
+
+
+def _plot_effect_trajectory(tab: pd.DataFrame, title: str, use_cs: bool):
+    import matplotlib.pyplot as plt
+
+    x = pd.to_numeric(tab["look_n"], errors="coerce").to_numpy(dtype=float)
+    diff = pd.to_numeric(tab["diff"], errors="coerce").to_numpy(dtype=float)
+
+    fig = plt.figure(figsize=(10, 5.5))
+    ax = fig.add_subplot(111)
+
+    ax.plot(x, diff, marker="o", label="effect (diff)")
+
+    if use_cs and ("cs_low" in tab.columns) and ("cs_high" in tab.columns):
+        lo = pd.to_numeric(tab["cs_low"], errors="coerce").to_numpy(dtype=float)
+        hi = pd.to_numeric(tab["cs_high"], errors="coerce").to_numpy(dtype=float)
+        if np.isfinite(lo).any() and np.isfinite(hi).any():
+            ax.fill_between(x, lo, hi, alpha=0.2, label="CS band (time-uniform)")
+    else:
+        if "se" in tab.columns:
+            se = pd.to_numeric(tab["se"], errors="coerce").to_numpy(dtype=float)
+            lo = diff - 1.96 * se
+            hi = diff + 1.96 * se
+            ax.fill_between(x, lo, hi, alpha=0.2, label="~95% CI (fixed/naive)")
+
+    ax.axhline(0, linewidth=1)
+    ax.set_title(title)
+    ax.set_xlabel("look_n")
+    ax.set_ylabel("effect")
+    ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0), borderaxespad=0.0)
+    fig.tight_layout()
+    return fig
 
 
 def cmd_sequential_mean(args) -> int:
     df = pd.read_csv(args.input)
 
-    spec = SequentialSpec(
-        group_col=str(getattr(args, "group_col", "group")),
-        control_label=str(getattr(args, "control", "control")),
-        test_label=str(getattr(args, "test", "test")),
-        y_col=str(getattr(args, "y")),
-        timestamp_col=str(getattr(args, "timestamp_col")) if getattr(args, "timestamp_col", None) else None,
-        unit_col=str(getattr(args, "unit_col")) if getattr(args, "unit_col", None) else None,
-    )
+    req = [args.group_col, args.y]
+    missing = [c for c in req if c not in df.columns]
+    if missing:
+        raise ValueError(f"Missing required columns: {missing}")
 
-    mode = str(getattr(args, "mode", "group_sequential"))
-    if mode not in {"group_sequential", "confidence_sequence"}:
-        raise ValueError("--mode must be group_sequential or confidence_sequence")
-
-    spending = str(getattr(args, "spending", "obrien_fleming"))
-    if spending not in {"obrien_fleming", "pocock"}:
-        raise ValueError("--spending must be obrien_fleming or pocock")
-
-    effect_dir = str(getattr(args, "effect_direction", "two_sided"))
-    if effect_dir not in {"two_sided", "increase", "decrease"}:
-        raise ValueError("--effect-direction must be two_sided|increase|decrease")
-
-    looks: Optional[list[int]] = None
-    n_looks: Optional[int] = None
-    max_n: Optional[int] = None
-    if getattr(args, "looks", None):
-        looks = _parse_looks_csv(args.looks)
-    else:
-        n_looks = int(getattr(args, "n_looks"))
-        max_n = int(getattr(args, "max_n"))
-
-    schedule = LookSchedule(looks=looks, n_looks=n_looks, max_n=max_n)
-
-    cfg = SequentialConfig(
-        mode=SequentialMode(mode),
-        alpha=float(getattr(args, "alpha", 0.05)),
-        two_sided=bool(getattr(args, "two_sided", True)),
-        spending=SpendingFunction(spending),
-        effect_direction=EffectDirection(effect_dir),
-        min_n_per_group=int(getattr(args, "min_n_per_group", 50)),
-        var_floor=float(getattr(args, "var_floor", 1e-12)),
-        cs_tau=float(getattr(args, "cs_tau", 1.0)),
-        seed=int(getattr(args, "seed", 42)),
-    )
-
-    look_table, warn_prep = build_look_table_mean(df, spec, schedule, cfg)
-
-    if cfg.mode == SequentialMode.GROUP_SEQUENTIAL:
-        res = run_group_sequential(look_table, cfg)
-    else:
-        res = run_confidence_sequence(look_table, cfg)
-    res.warnings = list(res.warnings) + list(warn_prep)
+    looks = _parse_looks(getattr(args, "looks", None), getattr(args, "n_looks", None), getattr(args, "max_n", None))
 
     out_dir = prepare_out_dir(getattr(args, "out", None), command="sequential-mean")
     write_run_meta(out_dir, vars(args), extra={"command": "sequential-mean"})
 
-    artifacts: dict[str, Any] = {"report_md": "report.md", "plots": [], "tables": []}
-    artifacts["tables"].append(write_table(out_dir, "look_table", res.look_table))
+    if getattr(args, "audit", False):
+        write_audit_bundle(out_dir, df=df, schema="b2c_user_level", parent_command="sequential-mean")
 
-    plots = make_sequential_plots(res, cfg)
-    for name, fig in plots.items():
-        artifacts["plots"].append(save_plot(out_dir, name, fig))
+    spec = SequentialSpec(
+        group_col=args.group_col,
+        control_label=args.control,
+        test_label=args.test,
+        y_col=args.y,
+        timestamp_col=getattr(args, "timestamp_col", "timestamp"),
+        unit_col=getattr(args, "unit_col", None),
+    )
 
-    if bool(getattr(args, "audit", False)):
-        audit_ctx = {
-            "group_col": spec.group_col,
-            "control_label": spec.control_label,
-            "test_label": spec.test_label,
-            "y_col": spec.y_col,
-            "timestamp_col": spec.timestamp_col,
-            "looks": looks,
-            "n_looks": n_looks,
-            "max_n": max_n,
-            "min_n_per_group": cfg.min_n_per_group,
-        }
-        write_audit_bundle(out_dir, df, schema="sequential_mean", parent_command="sequential-mean", context=audit_ctx)
-        artifacts["audit"] = {"audit_json": "audit.json", "audit_md": "audit.md"}
+    schedule = LookSchedule(looks=looks)
 
-    report = render_sequential_md(res, cfg, spec)
+    mode = str(getattr(args, "mode", "group_sequential")).strip()
+    if mode in {"group_sequential", "gs"}:
+        seq_mode = SequentialMode.GROUP_SEQUENTIAL
+    elif mode in {"confidence_sequence", "cs", "anytime"}:
+        seq_mode = SequentialMode.CONFIDENCE_SEQUENCE
+    else:
+        raise ValueError(f"Unknown --mode: {mode}")
 
-    payload: dict[str, Any] = {
+    spending = str(getattr(args, "spending", "obrien_fleming")).strip()
+    if spending in {"obrien_fleming", "obf"}:
+        spend = SpendingFunction.OBRIEN_FLEMING
+    elif spending in {"pocock"}:
+        spend = SpendingFunction.POCOCK
+    else:
+        raise ValueError(f"Unknown --spending: {spending}")
+
+    ed = str(getattr(args, "effect_direction", "two_sided")).strip()
+    if ed in {"two_sided", "two-sided"}:
+        eff_dir = EffectDirection.TWO_SIDED
+    elif ed in {"increase", "up"}:
+        eff_dir = EffectDirection.INCREASE
+    elif ed in {"decrease", "down"}:
+        eff_dir = EffectDirection.DECREASE
+    else:
+        raise ValueError(f"Unknown --effect-direction: {ed}")
+
+    cfg = SequentialConfig(
+        mode=seq_mode,
+        alpha=float(getattr(args, "alpha", 0.05)),
+        two_sided=bool(getattr(args, "two_sided", True)),
+        spending=spend,
+        effect_direction=eff_dir,
+        min_n_per_group=int(getattr(args, "min_n_per_group", 50)),
+        var_floor=float(getattr(args, "var_floor", 1e-12)),
+        seed=int(getattr(args, "seed", 0)) if getattr(args, "seed", None) is not None else 0,
+    )
+
+    look_table, warnings = build_look_table_mean(df, spec, schedule, cfg)
+
+    if seq_mode == SequentialMode.GROUP_SEQUENTIAL:
+        res = run_group_sequential(look_table, cfg)
+    else:
+        res = run_confidence_sequence(look_table, cfg)
+
+    tab = res.look_table.copy()
+
+    artifacts: dict[str, Any] = {"report_md": "report.md", "tables": [], "plots": []}
+
+    artifacts["tables"].append(write_table(out_dir, "look_table", tab))
+
+    fig_z = _plot_z_trajectory(tab, title="Sequential monitoring: z-trajectory + boundary")
+    artifacts["plots"].append(save_plot(out_dir, "z_trajectory", fig_z))
+
+    use_cs = (seq_mode == SequentialMode.CONFIDENCE_SEQUENCE)
+    fig_eff = _plot_effect_trajectory(tab, title="Effect trajectory (with band)", use_cs=use_cs)
+    artifacts["plots"].append(save_plot(out_dir, "effect_trajectory", fig_eff))
+
+    if use_cs and ("cs_low" in tab.columns) and ("cs_high" in tab.columns):
+        import matplotlib.pyplot as plt
+
+        x = pd.to_numeric(tab["look_n"], errors="coerce").to_numpy(dtype=float)
+        diff = pd.to_numeric(tab["diff"], errors="coerce").to_numpy(dtype=float)
+        lo = pd.to_numeric(tab["cs_low"], errors="coerce").to_numpy(dtype=float)
+        hi = pd.to_numeric(tab["cs_high"], errors="coerce").to_numpy(dtype=float)
+
+        fig = plt.figure(figsize=(10, 5.5))
+        ax = fig.add_subplot(111)
+        ax.plot(x, diff, marker="o", label="effect")
+        ax.fill_between(x, lo, hi, alpha=0.2, label="CS band (time-uniform)")
+        ax.axhline(0, linewidth=1)
+        ax.set_title("Confidence sequence band over time")
+        ax.set_xlabel("look_n")
+        ax.set_ylabel("effect")
+        ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0), borderaxespad=0.0)
+        fig.tight_layout()
+
+        artifacts["plots"].append(save_plot(out_dir, "cs_band", fig))
+
+    warn_lines = res.warnings or []
+    warn_lines = list(warn_lines) + list(warnings or [])
+    warn_lines = [str(w) for w in warn_lines if str(w).strip()]
+    warn_block = ("- " + "\n- ".join(warn_lines)) if warn_lines else "(none)"
+
+    report = f"""# tecore sequential-mean report
+
+## Inputs
+- input: `{args.input}`
+- group_col: `{args.group_col}`
+- control: `{args.control}`
+- test: `{args.test}`
+- y: `{args.y}`
+- looks: `{looks}`
+- mode: `{mode}`
+- alpha: `{cfg.alpha}`
+- spending: `{getattr(args, "spending", "obrien_fleming")}`
+- effect_direction: `{getattr(args, "effect_direction", "two_sided")}`
+- min_n_per_group: `{cfg.min_n_per_group}`
+
+## Decision
+- stopped: `{bool(res.stopped)}`
+- stop_look: `{res.stop_look}`
+- decision: `{res.decision}`
+- final_p_value: `{res.final_p_value}`
+
+## Artifacts
+- tables/look_table.csv
+- plots/z_trajectory.png
+- plots/effect_trajectory.png
+{("- plots/cs_band.png" if use_cs else "")}
+
+## Warnings
+{warn_block}
+"""
+    write_report_md(out_dir, report)
+
+    results_payload: dict[str, Any] = {
         "command": "sequential-mean",
         "inputs": {
             "input": args.input,
-            "group_col": spec.group_col,
-            "control": spec.control_label,
-            "test": spec.test_label,
-            "y": spec.y_col,
-            "mode": cfg.mode.value,
-            "alpha": cfg.alpha,
-            "spending": cfg.spending.value,
-            "effect_direction": cfg.effect_direction.value,
+            "group_col": args.group_col,
+            "control": args.control,
+            "test": args.test,
+            "y": args.y,
+            "looks": looks,
         },
         "estimates": {
-            "decision": res.decision,
-            "stopped": res.stopped,
+            "stopped": bool(res.stopped),
             "stop_look": res.stop_look,
+            "decision": res.decision,
             "final_p_value": res.final_p_value,
-            "final_ci": res.final_ci,
-            "cs": res.cs,
         },
-        "diagnostics": res.diagnostics,
-        "warnings": res.warnings,
+        "diagnostics": {},
+        "warnings": warn_lines,
         "artifacts": artifacts,
     }
+    write_results_json(out_dir, results_payload)
 
-    write_results_json(out_dir, payload)
-    write_report_md(out_dir, report)
+    if getattr(args, "strict", False) and warn_lines:
+        _warn("Strict mode: warnings present => exiting with code 2.")
+        return 2
+
     return 0

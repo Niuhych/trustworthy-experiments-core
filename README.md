@@ -47,6 +47,9 @@ Part 4 - Sequential analysis (safe peeking, early stopping, anytime-valid infere
 - [`notebooks/17_sequential_ratio_linearized.ipynb`](notebooks/17_sequential_ratio_linearized.ipynb) - sequential monitoring for ratio metrics via linearization; stability caveats.
 - [`notebooks/18_sequential_failure_modes_and_guardrails.ipynb`](notebooks/18_sequential_failure_modes_and_guardrails.ipynb) - drift, heavy tails, early looks: when not to trust sequential outputs.
 
+### Release notes
+- v0.1.1: adds Part 4 (Sequential analysis) and CLI support for sequential monitoring (mean + ratio; group sequential + anytime-valid mode).
+
 ### Outputs and artifacts
 
 This repository includes both reusable demo datasets and reproducible analysis bundles.
@@ -80,12 +83,12 @@ The CLI writes an output bundle directory (via --out) containing:
 ### Install (pinned version)
 
 ```bash
-pip install "git+https://github.com/Niuhych/trustworthy-experiments-core.git@v0.1.0"
+pip install "git+https://github.com/Niuhych/trustworthy-experiments-core.git@v0.1.1"
 ```
 
 ### Install with pipx (recommended for CLI)
 ```
-pipx install "git+https://github.com/Niuhych/trustworthy-experiments-core.git@v0.1.0"
+pipx install "git+https://github.com/Niuhych/trustworthy-experiments-core.git@v0.1.1"
 ```
 
 ### Sanity check (run on included examples)

@@ -1,0 +1,22 @@
+command: sequential-ratio
+input: out/sequential_simulate_ratio/data.csv
+out: out/yaml_run_sequential_ratio
+audit: true
+
+params:
+  group_col: group
+  control: control
+  test: test
+
+  num: num
+  den: den
+
+  baseline_mode: first_look
+
+  mode: group_sequential
+  alpha: 0.05
+  spending: obrien_fleming
+  effect_direction: two_sided
+
+  looks: "2000,4000,6000,8000,12000,16000,20000"
+  min_n_per_group: 50

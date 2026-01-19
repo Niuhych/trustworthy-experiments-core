@@ -70,6 +70,13 @@ tecore sequential-ratio \
   --out out/sequential_ratio_demo
 ```
 
+## Outputs
+Most commands write an output bundle directory via `--out`, containing:
+- `results.json`
+- `report.md`
+- `tables/*.csv`
+- `plots/*.png`
+
 ## Input format (b2c_user_level)
 Required columns:
 

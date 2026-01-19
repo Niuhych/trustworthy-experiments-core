@@ -26,8 +26,8 @@ PYTHONPATH=src python scripts/run_impact.py \
   --run-placebo
 ```
 
-### Outputs:
-results.json
-effect_series.csv
-placebo_results.csv (if enabled)
-plots/*.png
+### Outputs (in the --out directory):
+- results.json
+- tables/effect_series.csv
+- tables/placebo_results.csv (if enabled)
+- plots/*.png

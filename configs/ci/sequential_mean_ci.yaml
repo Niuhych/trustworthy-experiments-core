@@ -1,0 +1,18 @@
+command: sequential-mean
+input: out/sequential_simulate_mean/data.csv
+out: out/yaml_run_sequential_mean
+audit: true
+
+params:
+  group_col: group
+  control: control
+  test: test
+  y: y
+
+  mode: group_sequential
+  alpha: 0.05
+  spending: obrien_fleming
+  effect_direction: two_sided
+
+  looks: "2000,4000,6000,8000,10000,12000"
+  min_n_per_group: 50

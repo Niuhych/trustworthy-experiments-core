@@ -70,7 +70,10 @@ Notebooks 05–07 can:
 The focus is on **clarity and practicality**, not on covering every possible edge case. The code is meant to be read, modified, and adapted to real-world pipelines.
 
 ## Quickstart
-The CLI produces a machine-readable JSON and a human-readable Markdown report (--out-json, --out-md).
+The CLI writes an output bundle directory (via --out) containing:
+- results.json (machine-readable)
+- report.md (human-readable)
+- tables/*.csv and plots/*.png (artifacts referenced from results.json)
 
 ### Install (pinned version)
 
@@ -112,15 +115,6 @@ tecore cuped-ratio \
   --out-md out/report_ratio.md --out-json out/result_ratio.json
 ```
 
-## Run base vs CUPED on a ratio metric via linearization:
-```bash
-tecore cuped-ratio \
-  --input examples/example_ratio.csv \
-  --num revenue --den sessions \
-  --num-pre revenue_pre --den-pre sessions_pre \
-  --out-md out/report_ratio.md --out-json out/result_ratio.json
-```
-
 ## Sequential monitoring (safe peeking) on a mean metric:
 ```
 tecore sequential-mean \
@@ -129,8 +123,8 @@ tecore sequential-mean \
   --y revenue \
   --mode group_sequential \
   --spending obrien_fleming \
-  --looks 4,8,10 \
-  --min-n-per-group 2 \
+  --looks 200,400,600 \
+  --min-n-per-group 50 \
   --out out/sequential_mean_demo
 ```
 
@@ -142,8 +136,8 @@ tecore sequential-ratio \
   --num revenue --den sessions \
   --baseline-mode first_look \
   --mode confidence_sequence \
-  --n-looks 5 --max-n 10 \
-  --min-n-per-group 1 \
+  --n-looks 5 --max-n 1000 \
+  --min-n-per-group 50 \
   --out out/sequential_ratio_demo
 ```
 
@@ -203,11 +197,11 @@ If anything fails, please also include:
 
 ## Status
 
-This is an early-stage project. The initial goal is to provide a clear, working baseline for:
+This repository provides a pragmatic, working baseline for:
 - power analysis in B2C experiments,
-- basic metric design helpers,
-- reproducible examples and benchmarks (synthetic data + notebooks).
+- metric design helpers (including ratios + linearization),
+- variance reduction (CUPED),
+- sequential monitoring (group sequential + anytime-valid confidence sequences),
+- time series causal impact style evaluation (causal module + runner scripts).
 
-Future plans include: small refinements to CLI ergonomics and audit/guardrails as needed.
-
-Contributions, issues and suggestions are very welcome.
+The focus is on clarity and reproducibility; guardrails and CLI ergonomics are iterated as needed.

@@ -103,7 +103,7 @@ tecore validate --input examples/example_user_level.csv --schema b2c_user_level
 tecore cuped \
   --input examples/example_user_level.csv \
   --y revenue --x revenue_pre \
-  --out-md out/report_mean.md --out-json out/result_mean.json
+  --out out/cuped_mean_demo
 ```
 
 ## Validate example ratio dataset:
@@ -117,7 +117,7 @@ tecore cuped-ratio \
   --input examples/example_ratio.csv \
   --num revenue --den sessions \
   --num-pre revenue_pre --den-pre sessions_pre \
-  --out-md out/report_ratio.md --out-json out/result_ratio.json
+  --out out/cuped_ratio_demo
 ```
 
 ## Sequential monitoring (safe peeking) on a mean metric:
@@ -172,13 +172,13 @@ PYTHONPATH=src python scripts/run_impact.py \
 User-level mean metric:
 ```bash
 tecore validate --input data.csv --schema b2c_user_level
-tecore cuped --input data.csv --y revenue --x revenue_pre --out-md report.md --out-json result.json
+tecore cuped --input data.csv --y revenue --x revenue_pre --out out/cuped_mean
 ```
 
 ## Ratio metric (linearized):
 ```bash
 tecore validate --input data.csv --schema b2c_ratio
-tecore cuped-ratio --input data.csv --num revenue --den sessions --num-pre revenue_pre --den-pre sessions_pre --out-md report_ratio.md --out-json result_ratio.json
+tecore cuped-ratio --input data.csv --num revenue --den sessions --num-pre revenue_pre --den-pre sessions_pre --out out/cuped_ratio
 ```
 
 ## What to send back (pilot feedback)
@@ -186,8 +186,8 @@ tecore cuped-ratio --input data.csv --num revenue --den sessions --num-pre reven
 To evaluate the framework without sharing proprietary data, please send back:
 
 1) The exact command line you used (copy/paste).
-2) The generated JSON output (`--out-json ...`).
-3) The generated Markdown report (`--out-md ...`).
+2) The output bundle directory you produced via `--out` (zip it if needed).
+3) Inside that bundle: `results.json` + `report.md` (and `tables/*.csv`, `plots/*.png` if you can share them).
 
 Optional (helps interpretation, still privacy-friendly):
 - what the numerator/denominator represent in your domain (e.g., what `revenue` / `sessions` mean),

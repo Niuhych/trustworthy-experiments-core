@@ -20,7 +20,7 @@ tecore validate --input data.csv --schema b2c_user_level
 ```
 ## Run base vs CUPED (mean metric)
 ```bash
-tecore cuped --input data.csv --y revenue --x revenue_pre --out-md report.md --out-json result.json
+tecore cuped --input data.csv --y revenue --x revenue_pre --out out/cuped_mean
 ```
 
 ## Run base vs CUPED (ratio via linearization)
@@ -29,7 +29,7 @@ tecore cuped-ratio \
   --input data.csv \
   --num revenue --den sessions \
   --num-pre revenue_pre --den-pre sessions_pre \
-  --out-md report_ratio.md --out-json result_ratio.json
+  --out out/cuped_ratio
 ```
 ## Run causal impact on a time series (no randomization)
 ```bash

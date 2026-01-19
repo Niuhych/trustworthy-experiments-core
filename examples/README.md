@@ -43,6 +43,33 @@ PYTHONPATH=src python scripts/run_impact.py \
   --run-placebo
 ```
 
+## Sequential monitoring (safe peeking)
+Mean metric:
+```bash
+tecore sequential-mean \
+  --input examples/example_user_level.csv \
+  --group-col group --control control --test test \
+  --y revenue \
+  --mode group_sequential \
+  --spending obrien_fleming \
+  --looks 200,400,600 \
+  --min-n-per-group 50 \
+  --out out/sequential_mean_demo
+```
+
+## Ratio metric via linearization:
+```bash
+tecore sequential-ratio \
+  --input examples/example_ratio.csv \
+  --group-col group --control control --test test \
+  --num revenue --den sessions \
+  --baseline-mode first_look \
+  --mode confidence_sequence \
+  --n-looks 5 --max-n 1000 \
+  --min-n-per-group 50 \
+  --out out/sequential_ratio_demo
+```
+
 ## Input format (b2c_user_level)
 Required columns:
 
@@ -72,9 +99,8 @@ Recommended covariates (optional, passed via `--x`):
 
 Intervention date is provided via CLI: `--intervention YYYY-MM-DD`.
 
-## Roadmap
-This repository is designed to grow beyond CUPED:
-- tecore sequential ... (planned),
-- causal impact / synthetic control (time series) ... (available via `scripts/run_impact.py`, CLI command planned).
+## Notes
+- Sequential analysis is available via CLI: `tecore sequential-mean`, `tecore sequential-ratio`, `tecore sequential-simulate`.
+- Time series causal impact runs are available via `scripts/run_impact.py` (see `data/example_ts/README.md`).
   
 The tecore.io and tecore.report modules are intended to be reused across these components.
